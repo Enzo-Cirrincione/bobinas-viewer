@@ -1,0 +1,63 @@
+<!doctype html>
+const params = new URLSearchParams(window.location.search);
+return params.get(name);
+}
+async function main() {
+const id = getQueryParam('id');
+const statusEl = document.getElementById('status');
+const cardEl = document.getElementById('card');
+if (!id) { statusEl.textContent = "Falta parámetro 'id'"; return; }
+try {
+statusEl.textContent = 'Consultando…';
+const r = await fetch(`/api/bobina/${encodeURIComponent(id)}`);
+const txt = await r.text();
+let data; try { data = JSON.parse(txt); } catch { data = { error: 'parse_error', raw: txt }; }
+if (!r.ok || data.error) {
+statusEl.innerHTML = `<span class="error">Error: ${data.message || data.error || r.status}</span>`;
+return;
+}
+statusEl.style.display = 'none';
+cardEl.style.display = 'grid';
+
+
+const get = (k, alts = []) => {
+if (data[k] != null && data[k] !== '') return data[k];
+for (const a of alts) { if (data[a] != null && data[a] !== '') return data[a]; }
+return '';
+};
+
+
+const rows = [
+['ID_FILA', get('ID_FILA')],
+['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
+['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
+['CANTIDAD', get('CANTIDAD')],
+['PROVEEDOR', get('PROVEEDOR')],
+['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
+['LOTE', get('LOTE')],
+['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
+['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
+['UBICACIÓN', get('UBICACION_ALMACEN', ['UBICACIÓN'])],
+['ESTADO', get('ESTADO')],
+['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
+];
+
+
+cardEl.innerHTML = rows.map(([k, v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
+
+
+const url = get('URL');
+if (url) {
+const div = document.createElement('div');
+div.className = 'row';
+div.innerHTML = `<b>Ficha/Imagen:</b> <a href="${url}" target="_blank" rel="noreferrer">Abrir</a>`;
+cardEl.appendChild(div);
+}
+} catch (e) {
+statusEl.innerHTML = `<span class="error">${e && e.message ? e.message : 'Error inesperado'}</span>`;
+}
+}
+main();
+</script>
+</body>
+</html>
