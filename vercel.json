@@ -1,9 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/bobina/(.*)", "destination": "/viewer.html?id=$1" }
-  ],
-  "headers": [
-    { "source": "/api/(.*)", "headers": [ { "key": "Cache-Control", "value": "no-store" } ] }
+  "version": 2,
+  "routes": [
+    { "src": "/bobina/(.*)", "dest": "/viewer.html?id=$1" },
+    { "src": "/api/(.*)", "dest": "/api/$1", "headers": { "Cache-Control": "no-store" } }
   ]
 }
+
 
