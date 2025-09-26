@@ -63,6 +63,37 @@
         ];
 
         cardEl.innerHTML = rows.map(([k, v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
+        // 1) Leer la URL de imagen desde el JSON
+       const img = get('IMAGEN_URL');
+
+        // 2) Si existe, generamos el bloque visual
+        if (img) {
+          // 2.a) Creamos un <div> para mantener el mismo estilo de fila
+          const div = document.createElement('div');
+          div.className = 'row';
+
+          // 2.b) Definimos el contenido del <div>: etiqueta + <img>
+          div.innerHTML = `
+         <b>Imagen:</b><br>
+         <img
+           src="${img}"
+           alt="Etiqueta"
+           style="
+             max-width:100%;
+             max-height:320px;
+             object-fit:contain;
+             border:1px solid #e5e7eb;
+             border-radius:8px;
+            "
+           loading="lazy"
+           referrerpolicy="no-referrer"
+        />
+        `;
+
+        // 2.c) Lo insertamos en la tarjeta
+        cardEl.appendChild(div);
+      }
+
 
         const url = get('URL');
         if (url) {
