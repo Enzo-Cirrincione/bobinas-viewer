@@ -3,52 +3,246 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bobina</title>
+  <title>Bobinas • Viewer</title>
+  <meta name="color-scheme" content="light dark" />
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; padding:16px; }
-    .wrap { max-width:760px; margin:0 auto; }
-    .card { display:grid; gap:8px; padding:16px; border:1px solid #e5e7eb; border-radius:12px; }
-    .title { font-size:24px; font-weight:700; margin:0 0 12px; }
-    .muted { color:#6b7280; }
-    .error { color:#b91c1c; }
-    .row b { display:inline-block; min-width:190px; }
-    a { color:#2563eb; }
+    :root{
+      --bg: #0b0e14;
+      --card: #111520;
+      --muted: #97a3b6;
+      --text: #e6edf6;
+      --accent: #4f46e5;
+      --accent-2: #22c55e;
+      --border: #1c2233;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg: #f7f8fb;
+        --card: #ffffff;
+        --muted: #64748b;
+        --text: #0f172a;
+        --accent: #4f46e5;
+        --accent-2: #16a34a;
+        --border: #e5e7eb;
+        --danger: #dc2626;
+        --shadow: 0 10px 30px rgba(2,6,23,.08);
+      }
+    }
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0; padding:24px;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(79,70,229,.20), transparent 40%),
+        radial-gradient(1000px 700px at 110% 10%, rgba(34,197,94,.12), transparent 45%),
+        var(--bg);
+      color:var(--text);
+    }
+    .wrap{ max-width: 960px; margin:0 auto; display:grid; gap:16px }
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:16px; padding:16px 20px; border:1px solid var(--border); border-radius:var(--radius);
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)) , var(--card);
+      box-shadow: var(--shadow);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      font-weight:700; letter-spacing:.2px;
+    }
+    .brand .dot{ width:10px; height:10px; border-radius:999px; background:var(--accent) }
+    .id-badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; background: rgba(79,70,229,.15); color: var(--text);
+      border:1px solid rgba(79,70,229,.35); font-weight:600; font-size:13px;
+    }
+    .grid{
+      display:grid; grid-template-columns: 1.1fr .9fr; gap:16px;
+    }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns: 1fr }
+    }
+    .card{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      padding:18px;
+      box-shadow: var(--shadow);
+    }
+    .title{
+      margin:0 0 10px; font-size:22px; font-weight:800; letter-spacing:.2px;
+    }
+    .rows{ display:grid; gap:10px }
+    .row{ display:flex; align-items:baseline; gap:10px; line-height:1.35 }
+    .row b{
+      min-width: 190px; font-weight:700; color: var(--muted);
+    }
+    .muted{ color: var(--muted) }
+    .error{ color: var(--danger) }
+    a{ color:var(--accent); text-decoration: none }
+    a:hover{ text-decoration: underline }
+    .hero-img{
+      width:100%; max-height:360px; object-fit:contain;
+      border-radius:12px; border:1px solid var(--border); background: #0b0f19;
+    }
+    .btn{
+      appearance:none; border:1px solid transparent; border-radius:10px;
+      padding:10px 14px; font-weight:700; cursor:pointer;
+      background:var(--accent); color:white; box-shadow: 0 6px 20px rgba(79,70,229,.35);
+      transition: transform .04s ease, filter .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover{ filter:brightness(1.05); box-shadow:0 10px 26px rgba(79,70,229,.45) }
+    .btn:active{ transform: translateY(1px) }
+    .btn-ghost{
+      background:transparent; border-color:var(--border); color:var(--text);
+      box-shadow:none;
+    }
+    .form-grid{ display:grid; gap:12px }
+    .input{
+      width:100%; padding:10px 12px; border-radius:10px;
+      border:1px solid var(--border); background:transparent; color:var(--text);
+      outline:none;
+    }
+    .input::placeholder{ color: color-mix(in oklab, var(--muted) 80%, transparent) }
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end }
+    .status{ font-size:14px }
+    .spacer{ height:4px }
+    .skeleton{ height:14px; background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.02), rgba(255,255,255,.08)); border-radius:8px; animation: pulse 1.2s infinite }
+    @keyframes pulse{ 0%{ background-position:-200px 0 } 100%{ background-position:200px 0 } }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 class="title">Ficha de bobina</h1>
+    <header>
+      <div class="brand">
+        <div class="dot"></div>
+        <div>Bobinas • Viewer</div>
+      </div>
+      <div id="badge" class="id-badge">ID: —</div>
+    </header>
+
+    <div class="grid">
+      <!-- Ficha -->
+      <section class="card" id="card" style="display:none">
+        <h2 class="title">Ficha de bobina</h2>
+        <div class="rows" id="rows"></div>
+        <div class="spacer"></div>
+        <div id="extra-links"></div>
+      </section>
+
+      <!-- Imagen + Acciones -->
+      <aside class="card" id="media">
+        <h2 class="title">Imagen</h2>
+        <div id="imgWrap" class="muted">Cargando imagen…</div>
+      </aside>
+    </div>
+
+    <!-- Devolución -->
+    <section class="card" id="devolucion" style="display:none">
+      <div class="toolbar" style="justify-content:space-between">
+        <h2 class="title" style="margin:0">Cargar devolución</h2>
+        <small class="muted">Actualiza stock y deja traza en T_DEVOLUCIONES</small>
+      </div>
+      <form id="devForm" class="form-grid">
+        <div class="row">
+          <b>CANTIDAD DEVUELTA</b>
+          <input class="input" type="number" min="0" step="1" name="cantidad_devolucion" required placeholder="0">
+        </div>
+        <div class="row">
+          <b>LÍNEA</b>
+          <input class="input" type="text" name="linea" placeholder="Ej. L3">
+        </div>
+        <div class="row">
+          <b>OBSERVACIÓN</b>
+          <input class="input" type="text" name="observacion" placeholder="Motivo / nota">
+        </div>
+        <div class="row">
+          <b>USUARIO</b>
+          <input class="input" type="text" name="usuario" placeholder="(opcional)">
+        </div>
+        <div class="toolbar">
+          <button type="submit" class="btn">Enviar devolución</button>
+          <span id="devStatus" class="status muted"></span>
+        </div>
+      </form>
+    </section>
+
     <div id="status" class="muted">Cargando…</div>
-    <div id="card" class="card" style="display:none"></div>
   </div>
 
   <script>
-    function getQueryParam(name) {
+    // ——— Helpers ———
+    function getId() {
       const params = new URLSearchParams(window.location.search);
-      return params.get(name);
+      const q = params.get('id');
+      if (q) return q;
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] || null; // soporte /viewer.html?id=... y /bobina/:id (si en el futuro lo usás)
     }
+
+    function normalizeSharePointImageUrl(u) {
+      if (!u) return u;
+      u = u.replace(/%2520/g, '%20'); // corrige doble encode
+      try {
+        const url = new URL(u);
+        // Links de compartición
+        if (url.pathname.startsWith('/:u:/') || url.pathname.startsWith('/:i:/') || url.pathname.startsWith('/:x:/')) {
+          if (!url.searchParams.has('download')) url.searchParams.set('download','1');
+          return url.toString();
+        }
+        // Vista de biblioteca -> descargar directo
+        if (url.pathname.includes('/Forms/AllItems.aspx')) {
+          const idParam = url.searchParams.get('id');
+          if (idParam) {
+            const decoded = decodeURIComponent(idParam);
+            const base = url.origin + '/sites/ALMACENPRE-PRODUCCION/_layouts/15/download.aspx?SourceUrl=';
+            return base + encodeURIComponent(decoded);
+          }
+        }
+        return u;
+      } catch { return u; }
+    }
+
+    function fieldRow(label, value) {
+      return `<div class="row"><b>${label}:</b> ${value ?? ''}</div>`;
+    }
+
+    // ——— App ———
     async function main() {
-      const id = getQueryParam('id');
+      const id = getId();
       const statusEl = document.getElementById('status');
       const cardEl = document.getElementById('card');
-      if (!id) { statusEl.textContent = "Falta parámetro 'id'"; return; }
+      const rowsEl = document.getElementById('rows');
+      const badge = document.getElementById('badge');
+      const extraLinks = document.getElementById('extra-links');
+      const imgWrap = document.getElementById('imgWrap');
+
+      if (!id) { statusEl.innerHTML = '<span class="error">Falta parámetro "id"</span>'; return; }
+      badge.textContent = `ID: ${id}`;
+
       try {
         statusEl.textContent = 'Consultando…';
         const r = await fetch(`/api/bobina/${encodeURIComponent(id)}`);
         const txt = await r.text();
         let data; try { data = JSON.parse(txt); } catch { data = { error:'parse_error', raw:txt }; }
-        if (!r.ok || data.error) { statusEl.innerHTML = `<span class="error">Error: ${data.message || data.error || r.status}</span>`; return; }
-        statusEl.style.display = 'none';
-        cardEl.style.display = 'grid';
 
+        if (!r.ok || data.error) {
+          statusEl.innerHTML = `<span class="error">Error: ${data.message || data.error || r.status}</span>`;
+          return;
+        }
+
+        // Render ficha
         const get = (k, alts=[]) => {
           if (data[k] != null && data[k] !== '') return data[k];
           for (const a of alts) if (data[a] != null && data[a] !== '') return data[a];
           return '';
         };
 
-        const rows = [
-          ['ID_FILA', get('ID_FILA')],
+        const items = [
+          ['ID_FILA', get('ID_FILA') || get('ID')],
           ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
           ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
           ['CANTIDAD', get('CANTIDAD')],
@@ -61,52 +255,80 @@
           ['ESTADO', get('ESTADO')],
           ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
         ];
-
-        cardEl.innerHTML = rows.map(([k, v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
-        // 1) Leer la URL de imagen desde el JSON
-       const img = get('IMAGEN_URL');
-
-        // 2) Si existe, generamos el bloque visual
-        if (img) {
-          // 2.a) Creamos un <div> para mantener el mismo estilo de fila
-          const div = document.createElement('div');
-          div.className = 'row';
-
-          // 2.b) Definimos el contenido del <div>: etiqueta + <img>
-          div.innerHTML = `
-         <b>Imagen:</b><br>
-         <img
-           src="${img}"
-           alt="Etiqueta"
-           style="
-             max-width:100%;
-             max-height:320px;
-             object-fit:contain;
-             border:1px solid #e5e7eb;
-             border-radius:8px;
-            "
-           loading="lazy"
-           referrerpolicy="no-referrer"
-        />
-        `;
-
-        // 2.c) Lo insertamos en la tarjeta
-        cardEl.appendChild(div);
-      }
-
+        rowsEl.innerHTML = items.map(([k,v]) => fieldRow(k, v || '')).join('');
 
         const url = get('URL');
         if (url) {
-          const div = document.createElement('div');
-          div.className = 'row';
-          div.innerHTML = `<b>Ficha/Imagen:</b> <a href="${url}" target="_blank" rel="noreferrer">Abrir</a>`;
-          cardEl.appendChild(div);
+          extraLinks.innerHTML = fieldRow('Ficha/Imagen', `<a href="${url}" target="_blank" rel="noreferrer">Abrir</a>`);
         }
+
+        cardEl.style.display = 'block';
+        statusEl.style.display = 'none';
+
+        // Render imagen con fallback
+        const raw = get('IMAGEN_URL');
+        imgWrap.innerHTML = '<span class="muted">Cargando imagen…</span>';
+        if (raw) {
+          const imgUrl = normalizeSharePointImageUrl(raw);
+          const img = new Image();
+          img.className = 'hero-img';
+          img.alt = 'Etiqueta';
+          img.loading = 'lazy';
+          img.referrerPolicy = 'no-referrer';
+          img.src = imgUrl;
+
+          img.onerror = () => {
+            imgWrap.innerHTML = `<div class="muted">No se pudo cargar la vista previa.</div>
+              <div style="margin-top:6px"><a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir imagen en nueva pestaña</a></div>`;
+          };
+          img.onload = () => { imgWrap.innerHTML = ''; imgWrap.appendChild(img); };
+        } else {
+          imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
+        }
+
+        // — Devolución —
+        const dev = document.getElementById('devolucion');
+        const devForm = document.getElementById('devForm');
+        const devStatus = document.getElementById('devStatus');
+        dev.style.display = 'block';
+
+        devForm.addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          devStatus.textContent = 'Enviando…';
+          const payload = {
+            id,
+            cantidad_devolucion: Number(devForm.cantidad_devolucion.value),
+            linea: devForm.linea.value || undefined,
+            observacion: devForm.observacion.value || undefined,
+            usuario: devForm.usuario.value || undefined
+          };
+          Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+          try {
+            const rr = await fetch('/api/bobina/devolucion', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const t2 = await rr.text();
+            let out; try { out = JSON.parse(t2); } catch { out = { raw: t2 }; }
+            if (!rr.ok || out.error) {
+              devStatus.innerHTML = `<span class="error">Error: ${out.message || out.error || rr.status}</span>`;
+              return;
+            }
+            devStatus.textContent = 'OK. Devolución cargada.';
+            setTimeout(() => window.location.reload(), 800);
+          } catch (e) {
+            devStatus.innerHTML = `<span class="error">${e?.message || 'Error inesperado'}</span>`;
+          }
+        });
+
       } catch (e) {
-        statusEl.innerHTML = `<span class="error">${(e && e.message) ? e.message : 'Error inesperado'}</span>`;
+        statusEl.innerHTML = `<span class="error">${e?.message || 'Error inesperado'}</span>`;
       }
     }
-   main();
+    main();
   </script>
 </body>
 </html>
+
