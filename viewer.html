@@ -106,57 +106,7 @@
         statusEl.innerHTML = `<span class="error">${(e && e.message) ? e.message : 'Error inesperado'}</span>`;
       }
     }
-  <div id="devolucion" class="card" style="margin-top:16px; display:none">
-  <div style="font-weight:700">CARGAR DEVOLUCIÓN</div>
-  <form id="devForm">
-    <div class="row"><b>CANTIDAD DEVUELTA:</b> <input type="number" min="0" step="1" name="cantidad_devolucion" required></div>
-    <div class="row"><b>LÍNEA:</b> <input type="text" name="linea" placeholder="Ej. L3"></div>
-    <div class="row"><b>OBSERVACIÓN:</b> <input type="text" name="observacion" placeholder="Motivo / nota"></div>
-    <div class="row"><b>USUARIO:</b> <input type="text" name="usuario" placeholder="(opcional)"></div>
-    <button type="submit">Enviar devolución</button>
-    <span id="devStatus" class="muted"></span>
-  </form>
-  </div>
-
-    main(
-      const dev = document.getElementById('devolucion');
-const devForm = document.getElementById('devForm');
-const devStatus = document.getElementById('devStatus');
-dev.style.display = 'grid';
-
-devForm.addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  devStatus.textContent = 'Enviando…';
-
-  const payload = {
-    id,
-    cantidad_devolucion: Number(devForm.cantidad_devolucion.value),
-    linea: devForm.linea.value || undefined,
-    observacion: devForm.observacion.value || undefined,
-    usuario: devForm.usuario.value || undefined
-  };
-  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
-
-  try {
-    const r = await fetch('/api/bobina/devolucion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const txt = await r.text();
-    let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
-    if (!r.ok || out.error) {
-      devStatus.innerHTML = `<span class="error">Error: ${out.message || out.error || r.status}</span>`;
-      return;
-    }
-    devStatus.textContent = 'OK. Devolución cargada.';
-    setTimeout(() => window.location.reload(), 800);
-  } catch (e) {
-    devStatus.innerHTML = `<span class="error">${e?.message || 'Error inesperado'}</span>`;
-  }
-});
-
-    );
+   main();
   </script>
 </body>
 </html>
