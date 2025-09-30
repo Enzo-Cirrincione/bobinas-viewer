@@ -265,26 +265,33 @@
         cardEl.style.display = 'block';
         statusEl.style.display = 'none';
 
-        // Render imagen con fallback
-        const raw = get('IMAGEN_URL');
-        imgWrap.innerHTML = '<span class="muted">Cargando imagen…</span>';
-        if (raw) {
-          const imgUrl = normalizeSharePointImageUrl(raw);
-          const img = new Image();
-          img.className = 'hero-img';
-          img.alt = 'Etiqueta';
-          img.loading = 'lazy';
-          img.referrerPolicy = 'no-referrer';
-          img.src = imgUrl;
+        // Render imagen con tolerancia y cache-buster
+       const raw = get('IMAGEN_URL', ['IMAGEN URL']);
+       imgWrap.innerHTML = '<span class="muted">Cargando imagen…</span>';
 
-          img.onerror = () => {
-            imgWrap.innerHTML = `<div class="muted">No se pudo cargar la vista previa.</div>
-              <div style="margin-top:6px"><a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir imagen en nueva pestaña</a></div>`;
-          };
-          img.onload = () => { imgWrap.innerHTML = ''; imgWrap.appendChild(img); };
-        } else {
-          imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
-        }
+      if (raw) {
+        const imgUrl = normalizeSharePointImageUrl(raw);
+        const bust = (imgUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
+
+        const img = new Image();
+        img.className = 'hero-img';
+        img.alt = 'Etiqueta';
+        img.loading = 'lazy';
+        img.src = imgUrl + bust;   // evita cachés intermedios
+
+        img.onload = () => { imgWrap.innerHTML = ''; imgWrap.appendChild(img); };
+        img.onerror = () => {
+       // fallback: al menos dejamos un link clicable
+        imgWrap.innerHTML = `
+       <div class="muted">No se pudo cargar la vista previa.</div>
+       <div style="margin-top:6px">
+         <a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir imagen en nueva pestaña</a>
+       </div>`;
+         };
+      } else {
+      imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
+       }
+
 
         // — Devolución —
         const dev = document.getElementById('devolucion');
