@@ -265,32 +265,26 @@
         cardEl.style.display = 'block';
         statusEl.style.display = 'none';
 
-        // Render imagen con tolerancia y cache-buster
-       const raw = get('IMAGEN_URL', ['IMAGEN URL']);
-       imgWrap.innerHTML = '<span class="muted">Cargando imagen…</span>';
+        // Render imagen (método directo como el viewer viejo)
+        const raw = get('IMAGEN_URL', ['IMAGEN URL']);
+        if (raw) {
+           const imgUrl = normalizeSharePointImageUrl(raw);
+           imgWrap.innerHTML = `
+          <img
+          src="${imgUrl}"
+          alt="Etiqueta"
+          class="hero-img"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          />
+         <div style="margin-top:6px">
+         <a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir en pestaña nueva</a>
+         </div>
+          `;
+          } else {
+           imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
+           }
 
-      if (raw) {
-        const imgUrl = normalizeSharePointImageUrl(raw);
-        const bust = (imgUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
-
-        const img = new Image();
-        img.className = 'hero-img';
-        img.alt = 'Etiqueta';
-        img.loading = 'lazy';
-        img.src = imgUrl + bust;   // evita cachés intermedios
-
-        img.onload = () => { imgWrap.innerHTML = ''; imgWrap.appendChild(img); };
-        img.onerror = () => {
-       // fallback: al menos dejamos un link clicable
-        imgWrap.innerHTML = `
-       <div class="muted">No se pudo cargar la vista previa.</div>
-       <div style="margin-top:6px">
-         <a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir imagen en nueva pestaña</a>
-       </div>`;
-         };
-      } else {
-      imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
-       }
 
 
         // — Devolución —
