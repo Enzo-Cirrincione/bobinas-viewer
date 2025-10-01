@@ -209,6 +209,77 @@
     function fieldRow(label, value) {
       return `<div class="row"><b>${label}:</b> ${value ?? ''}</div>`;
     }
+    //Aquí arranca la mejora para poder editar campos desde el viewer
+    function editableRow({ label, value, field, type = 'text', options = [], onSave }) {
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const bold = document.createElement('b'); bold.textContent = label + ':';
+  const span = document.createElement('span'); span.id = `val-${field}`; span.textContent = value ?? '';
+
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = 'Editar';
+
+  const inputWrap = document.createElement('span'); inputWrap.style.display = 'none';
+  let input;
+  if (type === 'select') {
+    input = document.createElement('select'); input.className = 'input';
+    const optEmpty = document.createElement('option'); optEmpty.value = ''; optEmpty.textContent = '(seleccionar)'; input.appendChild(optEmpty);
+    (options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); });
+    input.value = value || '';
+  } else {
+    input = document.createElement('input'); input.className = 'input'; input.type = (type === 'number') ? 'number' : 'text';
+    if (type === 'number') { input.min = '0'; input.step = '1'; }
+    input.value = value ?? '';
+  }
+
+  const save = document.createElement('button'); save.type = 'button'; save.className = 'btn'; save.textContent = 'Guardar';
+  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-ghost'; cancel.textContent = 'Cancelar';
+  const status = document.createElement('span'); status.className = 'status muted'; status.style.marginLeft = '8px';
+
+  inputWrap.appendChild(input);
+  inputWrap.appendChild(save);
+  inputWrap.appendChild(cancel);
+  inputWrap.appendChild(status);
+
+  row.appendChild(bold);
+  row.appendChild(span);
+  row.appendChild(btn);
+  row.appendChild(inputWrap);
+
+  function enterEdit() {
+    btn.style.display = 'none';
+    span.style.display = 'none';
+    inputWrap.style.display = 'inline-flex';
+    input.focus();
+    if (type !== 'select') input.select();
+  }
+  function exitEdit() {
+    btn.style.display = 'inline-block';
+    span.style.display = 'inline';
+    inputWrap.style.display = 'none';
+    status.textContent = '';
+  }
+
+  btn.addEventListener('click', enterEdit);
+  cancel.addEventListener('click', exitEdit);
+
+  save.addEventListener('click', async () => {
+    const newValRaw = (type === 'number') ? Number(input.value) : input.value.trim();
+    status.textContent = 'Guardando…';
+    try {
+      await onSave(newValRaw, status, (finalVal) => {
+        span.textContent = (finalVal ?? newValRaw) || '';
+        exitEdit();
+      });
+    } catch (e) {
+      status.innerHTML = `<span class="error">${e?.message || 'Error'}</span>`;
+    }
+  });
+
+  return row;
+}
+
 
     // ——— App ———
     async function main() {
@@ -240,23 +311,89 @@
           for (const a of alts) if (data[a] != null && data[a] !== '') return data[a];
           return '';
         };
+       // Nueva ficha con los botones de editar
+       const itemsStatic = [
+  ['ID_FILA', get('ID_FILA') || get('ID')],
+  ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
+  ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
+  ['PROVEEDOR', get('PROVEEDOR')],
+  ['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
+  ['LOTE', get('LOTE')],
+  ['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
+  ['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
+  ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
+];
 
-        const items = [
-          ['ID_FILA', get('ID_FILA') || get('ID')],
-          ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
-          ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
-          ['CANTIDAD', get('CANTIDAD')],
-          ['PROVEEDOR', get('PROVEEDOR')],
-          ['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
-          ['LOTE', get('LOTE')],
-          ['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
-          ['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
-          ['UBICACIÓN', get('UBICACION_ALMACEN', ['UBICACIÓN'])],
-          ['ESTADO', get('ESTADO')],
-          ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
-        ];
-        rowsEl.innerHTML = items.map(([k,v]) => fieldRow(k, v || '')).join('');
+rowsEl.innerHTML = itemsStatic.map(([k,v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
 
+// Ahora añadimos 3 filas editables:
+const guardarCambio = async (payload, status, afterOk) => {
+  const r = await fetch('/api/bobina/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const txt = await r.text();
+  let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
+  if (!r.ok || out.error) throw new Error(out.message || out.error || r.status);
+  status.textContent = 'OK';
+  // refetch rápido para que se vea actualizado sin reload
+  await refetchAndPatch();
+  afterOk();
+};
+
+// helper para refrescar ficha sin recargar la página
+async function refetchAndPatch() {
+  const r2 = await fetch(`/api/bobina/${encodeURIComponent(id)}?v=${Date.now()}`, { cache: 'no-store' });
+  const t2 = await r2.text();
+  let d2; try { d2 = JSON.parse(t2); } catch { d2 = null; }
+  if (r2.ok && d2 && !d2.error) {
+    // parchear valores visibles
+    document.getElementById('val-cantidad') && (document.getElementById('val-cantidad').textContent = d2.CANTIDAD ?? '');
+    document.getElementById('val-ubicacion_almacen') && (document.getElementById('val-ubicacion_almacen').textContent =
+      d2.UBICACION_ALMACEN || d2['UBICACION ALMACEN'] || d2['UBICACIÓN'] || '');
+    document.getElementById('val-estado') && (document.getElementById('val-estado').textContent = d2.ESTADO ?? '');
+  }
+}
+
+// CANTIDAD (number)
+rowsEl.appendChild(editableRow({
+  label: 'CANTIDAD',
+  value: get('CANTIDAD'),
+  field: 'cantidad',
+  type: 'number',
+  onSave: async (newVal, status, done) => {
+    if (isNaN(newVal) || newVal < 0) throw new Error('Cantidad inválida');
+    await guardarCambio({ id, cantidad: Number(newVal) }, status, () => done());
+  }
+}));
+
+// UBICACIÓN (text)
+rowsEl.appendChild(editableRow({
+  label: 'UBICACIÓN',
+  value: get('UBICACION_ALMACEN', ['UBICACIÓN']),
+  field: 'ubicacion_almacen',
+  type: 'text',
+  onSave: async (newVal, status, done) => {
+    if (!newVal) throw new Error('Ubicación vacía');
+    await guardarCambio({ id, ubicacion_almacen: newVal }, status, () => done());
+  }
+}));
+
+// ESTADO (select)
+rowsEl.appendChild(editableRow({
+  label: 'ESTADO',
+  value: get('ESTADO'),
+  field: 'estado',
+  type: 'select',
+  options: ['ALMACEN', 'LINEA', 'BLOQUEADA'],
+  onSave: async (newVal, status, done) => {
+    if (!newVal) throw new Error('Seleccioná un estado');
+    await guardarCambio({ id, estado: newVal }, status, () => done());
+  }
+}));
+
+// hasta aquí es la mejora para los editables
         const url = get('URL');
         if (url) {
           extraLinks.innerHTML = fieldRow('Ficha/Imagen', `<a href="${url}" target="_blank" rel="noreferrer">Abrir</a>`);
@@ -327,6 +464,7 @@
       } catch (e) {
         statusEl.innerHTML = `<span class="error">${e?.message || 'Error inesperado'}</span>`;
       }
+      
     }
     main();
   </script>
