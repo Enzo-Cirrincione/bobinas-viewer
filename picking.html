@@ -135,6 +135,41 @@
       return u;
     } catch { return u; }
   }
+  
+  // Extrae un ID_FILA válido desde texto o URL (viewer.html?id=CQ4, /bobina/CQ4, "id=CQ4", etc.)
+function extractIdFromText(raw) {
+  if (!raw) return '';
+  let t = String(raw).trim();
+
+  // Si es URL (https://...) intentamos id= o /bobina/:id
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      const u = new URL(t);
+      // Caso 1: ?id=CQ4
+      const qid = u.searchParams.get('id');
+      if (qid) return qid.trim().toUpperCase();
+
+      // Caso 2: /bobina/CQ4
+      const parts = u.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last && /^[A-Za-z0-9_-]+$/.test(last)) return last.toUpperCase();
+    } catch {
+      // no era una URL válida; seguimos con heurísticas
+    }
+  }
+
+  // Caso 3: texto tipo "id=CQ4" o "ID_FILA=CQ4"
+  const eq = t.match(/(?:^|[?&#])(?:id|ID_FILA)\s*=\s*([A-Za-z0-9_-]+)/);
+  if (eq && eq[1]) return eq[1].toUpperCase();
+
+  // Caso 4: primer token alfanumérico (ej: "CQ4\n", "CQ4;algo")
+  const plain = t.match(/[A-Za-z0-9_-]+/);
+  if (plain) return plain[0].toUpperCase();
+
+  return '';
+}
+
+  
 
   let LIST = [];   // Ítems de picking (GET_PICKING)
   let BASE = {};   // Maestro por código (GET_BASE_ETIQUETAS)
@@ -354,8 +389,9 @@
     const it = LIST[idx]; if (!it) return;
     const key = keyOf(it);
     const restante = restos[key];
-    const id = scanInp.value.trim();
-
+    const id = extractIdFromText(scanInp.value); // Normalizamos lo que venga del input (puede ser URL completa)
+    scanInp.value = id; // reflejamos el ID limpio en el campo
+    
     scanStatus.textContent = '';
     takeWrap.style.display = 'none';
     takeStatus.textContent = '';
@@ -462,11 +498,13 @@
       const config = { fps: 10, qrbox: 240, aspectRatio: 1.777 };
       qrScanner = new Html5QrcodeScanner('qr-reader', config, false);
       const onScanSuccess = (decodedText) => {
-        scanInp.value = decodedText;
-        stopQr();
-        cameraWrap.style.display = 'none';
-        validarBtn.click();
-      };
+       const id = extractIdFromText(decodedText);
+       scanInp.value = id || decodedText; // si no pudo extraer, deja lo leído
+       stopQr();
+       cameraWrap.style.display = 'none';
+       validarBtn.click();
+       };
+
       const onScanError = (_msg) => {};
       qrScanner.render(onScanSuccess, onScanError);
       camBtn.textContent = 'Cerrar cámara';
