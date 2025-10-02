@@ -2,113 +2,116 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Ayuda Picking</title>
 <meta name="color-scheme" content="light dark" />
 <style>
-  :root{ --bg:#0b0e14; --card:#111520; --muted:#97a3b6; --text:#e6edf6; --accent:#4f46e5; --ok:#16a34a; --err:#ef4444; --border:#1c2233; --shadow:0 10px 30px rgba(0,0,0,.35); --radius:16px }
+  :root{
+    --bg:#0b0e14; --card:#111520; --muted:#97a3b6; --text:#e6edf6; --accent:#4f46e5;
+    --ok:#16a34a; --err:#ef4444; --border:#1c2233; --shadow:0 10px 30px rgba(0,0,0,.35); --radius:16px
+  }
   @media (prefers-color-scheme: light){
     :root{ --bg:#f7f8fb; --card:#fff; --muted:#64748b; --text:#0f172a; --accent:#4f46e5; --ok:#16a34a; --err:#dc2626; --border:#e5e7eb; --shadow:0 10px 30px rgba(2,6,23,.08) }
   }
-  *{ box-sizing:border-box } body{ margin:0; padding:24px; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial; background:var(--bg); color:var(--text) }
-  .wrap{ max-width:1100px; margin:0 auto; display:grid; gap:16px }
-  .card{ border:1px solid var(--border); border-radius:var(--radius); background:var(--card); padding:18px; box-shadow:var(--shadow) }
-  .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-  .title{ margin:0 0 10px; font-size:22px; font-weight:800 }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent }
+  body{ margin:0; padding:16px; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial; background:var(--bg); color:var(--text) }
+  .wrap{ max-width:960px; margin:0 auto; display:grid; gap:12px }
+  .card{ border:1px solid var(--border); border-radius:var(--radius); background:var(--card); padding:14px; box-shadow:var(--shadow) }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  .title{ margin:0 0 8px; font-size:20px; font-weight:800 }
   .muted{ color:var(--muted) } .ok{ color:var(--ok) } .err{ color:var(--err) }
-  .input, select{ padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:transparent; color:var(--text) }
-  .btn{ padding:10px 14px; border-radius:10px; border:1px solid transparent; background:var(--accent); color:#fff; font-weight:700; cursor:pointer }
-  .btn-ghost{ padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text) }
-  .hero-img{ width:100%; max-height:320px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:#0b0f19 }
-  .grid{ display:grid; grid-template-columns: 1.1fr .9fr; gap:16px } @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
+  .input, select{ width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:transparent; color:var(--text); font-size:16px }
+  .btn{ width:100%; padding:12px 16px; border-radius:12px; border:1px solid transparent; background:var(--accent); color:#fff; font-weight:800; font-size:16px; cursor:pointer }
+  .btn-ghost{ width:auto; padding:12px 16px; border-radius:12px; border:1px solid var(--border); background:transparent; color:var(--text); font-weight:700 }
+  .btn-wide{ width:100% }
+  .hero-img{ width:100%; max-height:40vh; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:#0b0f19 }
+  .grid{ display:grid; grid-template-columns: 1fr; gap:12px } /* Móvil: 1 columna */
+  @media (min-width:900px){ .grid{ grid-template-columns: 1.1fr .9fr } } /* Escritorio: 2 columnas */
   .badge{ display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid var(--border); border-radius:999px; }
-  .progress{ display:flex; gap:8px; flex-wrap:wrap }
-  .chip{ padding:6px 10px; border:1px solid var(--border); border-radius:999px; font-size:12px }
+  .progress{ display:grid; gap:8px }
+  .wo-group{ border:1px dashed var(--border); border-radius:12px; padding:8px }
+  .wo-title{ font-weight:800; margin:0 0 6px; font-size:14px; color:var(--muted) }
+  .chip{ display:inline-block; padding:6px 10px; border:1px solid var(--border); border-radius:999px; font-size:13px; margin:4px 6px 0 0 }
   .chip.ok{ background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.35) }
-  .chip.pending{ background: transparent }
+  .krow b{ display:inline-block; min-width:140px; color:var(--muted) }
+  .footer-actions{ display:grid; grid-template-columns:1fr; gap:8px } /* Móvil: botones apilados */
+  @media (min-width:620px){ .footer-actions{ grid-template-columns:repeat(3,1fr) } } /* Desktop: 3 en fila */
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- Selección inicial -->
+  <!-- FICHA SELECCIÓN (solo línea) -->
   <section class="card">
-    <h2 class="title">Seleccioná trabajo</h2>
-    <div class="row">
-      <label>Línea</label>
-      <select id="linea"></select>
-
-      <label><input type="radio" name="modo" value="fecha" checked> Por fecha</label>
-      <input id="fecha" class="input" type="date">
-
-      <label><input type="radio" name="modo" value="wo"> Por WO</label>
-      <input id="wo" class="input" type="text" placeholder="WO1234" disabled>
-
-      <button id="cargar" class="btn">Cargar</button>
-      <span id="selStatus" class="muted"></span>
+    <h2 class="title">LÍNEA A PREPARAR</h2>
+    <div class="row" style="gap:8px">
+      <select id="linea" aria-label="Línea"></select>
+      <button id="cargar" class="btn btn-wide">Cargar</button>
     </div>
+    <div class="muted" id="selStatus" style="margin-top:6px"></div>
   </section>
 
   <!-- Contenido principal -->
   <section class="grid" id="content" style="display:none">
     <div class="card">
-      <div class="row" style="justify-content:space-between">
+      <div class="row" style="justify-content:space-between; align-items:flex-start">
         <h2 class="title" id="skuTitle">Código</h2>
         <span class="badge" id="woBadge">WO: —</span>
       </div>
-      <div class="row"><b style="min-width:160px;color:var(--muted)">Descripción:</b> <span id="desc"></span></div>
-      <div class="row"><b style="min-width:160px;color:var(--muted)">Ubicación:</b> <span id="ubic"></span></div>
-      <div class="row">
-        <b style="min-width:160px;color:var(--muted)">Requerida:</b> <span id="req"></span>
-        <b style="min-width:160px;color:var(--muted)">Restante:</b> <span id="rest" class="badge">—</span>
+
+      <div class="krow"><b>Descripción:</b> <span id="desc"></span></div>
+      <div class="krow"><b>Ubicación:</b> <span id="ubic"></span></div>
+      <div class="krow">
+        <b>Requerida:</b> <span id="req"></span> &nbsp;&nbsp;
+        <b>Restante:</b> <span id="rest" class="badge">—</span>
       </div>
+
       <div style="margin-top:8px" id="imgWrap" class="muted">Cargando imagen…</div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
 
       <div class="row">
-        <b style="min-width:160px;color:var(--muted)">Escanear bobina</b>
-        <input id="scan" class="input" type="text" placeholder="ID_FILA (QR)" />
+        <input id="scan" class="input" type="text" placeholder="Escaneá o escribí ID_FILA (QR)" />
         <button id="validar" class="btn">Validar</button>
-        <button id="cam" class="btn btn-ghost">Usar cámara</button>
-        <span id="scanStatus" class="muted"></span>
+        <button id="cam" class="btn btn-ghost">Cámara</button>
       </div>
+      <div class="muted" id="scanStatus" style="margin-top:6px"></div>
 
       <div id="cameraWrap" class="card" style="display:none; padding:12px; margin-top:8px">
         <div id="qr-reader" style="width:100%"></div>
-        <div class="muted" style="margin-top:6px">Apuntá el QR. Al leerlo, se completará el campo y se validará automáticamente.</div>
+        <div class="muted" style="margin-top:6px">Apuntá el QR. Al leerlo se completa y valida automáticamente.</div>
       </div>
 
-      <div id="takeWrap" style="display:none; margin-top:10px">
+      <div id="takeWrap" style="display:none; margin-top:8px">
         <div class="row">
-          <b style="min-width:160px;color:var(--muted)">Cantidad a tomar</b>
-          <input id="takeQty" class="input" type="number" min="0" step="1">
+          <input id="takeQty" class="input" type="number" min="0" step="1" inputmode="numeric" />
           <button id="confirmar" class="btn">Confirmar</button>
           <button id="cancel" class="btn btn-ghost">Cancelar</button>
-          <span id="takeStatus" class="muted"></span>
         </div>
+        <div id="takeStatus" class="muted" style="margin-top:6px"></div>
       </div>
 
-      <div style="margin-top:12px">
-        <div class="row" style="justify-content:flex-end; gap:8px">
-          <button id="prev" class="btn btn-ghost">Anterior</button>
-          <button id="skip" class="btn btn-ghost">Saltar</button>
-          <button id="next" class="btn">Siguiente</button>
-        </div>
+      <div class="footer-actions" style="margin-top:10px">
+        <button id="prev" class="btn-ghost">Anterior</button>
+        <button id="skip" class="btn-ghost">Saltar</button>
+        <button id="next" class="btn">Siguiente</button>
       </div>
     </div>
 
     <aside class="card">
       <h2 class="title">Progreso</h2>
-      <div class="row"><span id="progText" class="muted">0 / 0</span></div>
-      <div id="chips" class="progress"></div>
+      <div class="muted" id="progText">0 / 0</div>
+      <div id="progressGroups" class="progress" style="margin-top:8px"></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <button id="guardarLog" class="btn" disabled>Guardar registro</button> <!-- NUEVO -->
+      <div id="logStatus" class="muted" style="margin-top:6px"></div>
     </aside>
   </section>
 
-  <div id="status" class="muted">Listo para cargar.</div>
+  <div id="status" class="muted">Elegí una línea y presioná Cargar.</div>
 </div>
 
-<!-- Scanner de QR por cámara -->
+<!-- Scanner de QR -->
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <script>
@@ -135,51 +138,33 @@
       return u;
     } catch { return u; }
   }
-  
-  // Extrae un ID_FILA válido desde texto o URL (viewer.html?id=CQ4, /bobina/CQ4, "id=CQ4", etc.)
-function extractIdFromText(raw) {
-  if (!raw) return '';
-  let t = String(raw).trim();
 
-  // Si es URL (https://...) intentamos id= o /bobina/:id
-  if (/^https?:\/\//i.test(t)) {
-    try {
-      const u = new URL(t);
-      // Caso 1: ?id=CQ4
-      const qid = u.searchParams.get('id');
-      if (qid) return qid.trim().toUpperCase();
-
-      // Caso 2: /bobina/CQ4
-      const parts = u.pathname.split('/').filter(Boolean);
-      const last = parts[parts.length - 1];
-      if (last && /^[A-Za-z0-9_-]+$/.test(last)) return last.toUpperCase();
-    } catch {
-      // no era una URL válida; seguimos con heurísticas
+  // NUEVO: extraer ID_FILA desde URL completa o texto
+  function extractIdFromText(raw) {
+    if (!raw) return '';
+    let t = String(raw).trim();
+    if (/^https?:\/\//i.test(t)) {
+      try {
+        const u = new URL(t);
+        const qid = u.searchParams.get('id'); if (qid) return qid.trim().toUpperCase();
+        const parts = u.pathname.split('/').filter(Boolean);
+        const last = parts[parts.length - 1]; if (last && /^[A-Za-z0-9_-]+$/.test(last)) return last.toUpperCase();
+      } catch {}
     }
+    const eq = t.match(/(?:^|[?&#])(?:id|ID_FILA)\s*=\s*([A-Za-z0-9_-]+)/);
+    if (eq && eq[1]) return eq[1].toUpperCase();
+    const plain = t.match(/[A-Za-z0-9_-]+/); if (plain) return plain[0].toUpperCase();
+    return '';
   }
-
-  // Caso 3: texto tipo "id=CQ4" o "ID_FILA=CQ4"
-  const eq = t.match(/(?:^|[?&#])(?:id|ID_FILA)\s*=\s*([A-Za-z0-9_-]+)/);
-  if (eq && eq[1]) return eq[1].toUpperCase();
-
-  // Caso 4: primer token alfanumérico (ej: "CQ4\n", "CQ4;algo")
-  const plain = t.match(/[A-Za-z0-9_-]+/);
-  if (plain) return plain[0].toUpperCase();
-
-  return '';
-}
-
-  
 
   let LIST = [];   // Ítems de picking (GET_PICKING)
   let BASE = {};   // Maestro por código (GET_BASE_ETIQUETAS)
   let idx = 0;     // Índice del ítem actual
   let restos = {}; // Mapa CODIGO@WO -> restante
+  let LOG = [];    // NUEVO: registros confirmados para guardar
 
   // === Referencias UI ===
   const lineaSel = document.getElementById('linea');
-  const fechaInp = document.getElementById('fecha');
-  const woInp = document.getElementById('wo');
   const selStatus = document.getElementById('selStatus');
   const statusEl = document.getElementById('status');
   const content = document.getElementById('content');
@@ -208,21 +193,12 @@ function extractIdFromText(raw) {
   const nextBtn = document.getElementById('next');
   const skipBtn = document.getElementById('skip');
 
-  const chips = document.getElementById('chips');
+  const progressGroups = document.getElementById('progressGroups');
   const progText = document.getElementById('progText');
+  const guardarLogBtn = document.getElementById('guardarLog');
+  const logStatus = document.getElementById('logStatus');
 
-  // === Modo: por fecha o por WO ===
-  document.querySelectorAll('input[name="modo"]').forEach(r => {
-    r.addEventListener('change', () => {
-      const byFecha = r.value === 'fecha';
-      fechaInp.disabled = !byFecha;
-      woInp.disabled = byFecha;
-    });
-  });
-  // Fecha default hoy
-  fechaInp.value = new Date().toISOString().slice(0,10);
-
-  // === Poblar líneas con fallback ===
+  // === Carga de líneas (con fallback) ===
   async function loadLines() {
     try {
       const r = await fetch('/api/picking/lines?_ts='+Date.now(), { cache:'no-store' });
@@ -232,13 +208,10 @@ function extractIdFromText(raw) {
   }
   function renderLines(arr) {
     lineaSel.innerHTML = '';
-    arr.forEach(v => {
-      const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
-      lineaSel.appendChild(opt);
-    });
+    arr.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=v; lineaSel.appendChild(o); });
   }
 
-  // === Base etiquetas (una vez por sesión) ===
+  // Base etiquetas (1 sola vez)
   async function loadBase() {
     const r = await fetch('/api/base/etiquetas?_ts='+Date.now(), { cache:'no-store' });
     const data = await r.json();
@@ -255,62 +228,67 @@ function extractIdFromText(raw) {
     }
   }
 
-  // === Helpers de render ===
   function keyOf(item) { return `${item.CODIGO}@@${item.WO}`; }
 
+  // Progreso agrupado por WO (NUEVO)
   function renderProgress() {
-    chips.innerHTML = '';
-    const total = LIST.length;
-    let okCount = 0;
-    LIST.forEach((it, i) => {
-      const key = keyOf(it);
-      const rem = restos[key];
-      const chip = document.createElement('div');
-      chip.className = 'chip ' + (rem <= 0 ? 'ok' : 'pending');
-      chip.textContent = `${it.CODIGO} (${rem <= 0 ? 'OK' : `rest ${rem}`})`;
-      chip.title = `WO ${it.WO} • ORDEN ${it.ORDEN}`;
-      chip.addEventListener('click', () => { idx = i; renderItem(); });
-      chips.appendChild(chip);
-      if (rem <= 0) okCount++;
+    progressGroups.innerHTML = '';
+    const groups = new Map();
+    LIST.forEach((it,i) => {
+      const keyWO = it.WO || '—';
+      if (!groups.has(keyWO)) groups.set(keyWO, []);
+      groups.get(keyWO).push({it, i});
     });
-    progText.textContent = `${okCount} / ${total}`;
+
+    let done=0, total=LIST.length;
+
+    groups.forEach((arr, WO) => {
+      const box = document.createElement('div'); box.className='wo-group';
+      const title = document.createElement('div'); title.className='wo-title';
+      title.textContent = `WO ${WO}`;
+      box.appendChild(title);
+
+      arr.forEach(({it,i}) => {
+        const k = keyOf(it);
+        const rem = restos[k];
+        const chip = document.createElement('span');
+        chip.className = 'chip ' + (rem <= 0 ? 'ok' : '');
+        chip.textContent = `${it.CODIGO} (${rem <= 0 ? 'OK' : `rest ${rem}`})`;
+        chip.title = `ORDEN ${it.ORDEN}`;
+        chip.addEventListener('click', () => { idx = i; renderItem(); });
+        if (rem <= 0) done++;
+        box.appendChild(chip);
+      });
+
+      progressGroups.appendChild(box);
+    });
+
+    progText.textContent = `${done} / ${total}`;
+    guardarLogBtn.disabled = (done < total); // habilitar guardar cuando esté todo OK
   }
 
   function renderItem() {
     if (!LIST.length) return;
     const it = LIST[idx];
     const base = BASE[it.CODIGO] || {};
-    const key = keyOf(it);
-    const restante = restos[key];
+    const k = keyOf(it);
+    const restante = restos[k];
 
     skuTitle.textContent = it.CODIGO;
     woBadge.textContent = `WO: ${it.WO}`;
-    // Aviso visual si cambió la WO respecto al ítem anterior
-    if (idx > 0) {
-      const prevWO = LIST[idx-1]?.WO;
-      if (prevWO && prevWO !== it.WO) {
-        woBadge.style.border = '1px solid var(--accent)';
-        woBadge.style.boxShadow = '0 0 0 3px rgba(79,70,229,.25)';
-        setTimeout(() => { woBadge.style.border='1px solid var(--border)'; woBadge.style.boxShadow='none'; }, 900);
-      }
-    }
 
     descEl.textContent = base.DESCRIPCION || it.DESCRIPCION || '—';
     ubicEl.textContent = base.UBICACION_ALMACEN || it.UBICACION_ALMACEN || '—';
     reqEl.textContent = String(it.CANTIDAD);
 
-    // Mostrar restante con excedente
-    let restText = '';
-    if (restante >= 0) restText = String(restante);
-    else restText = `0 (excedente ${Math.abs(restante)})`;
+    let restText = (restante >= 0) ? String(restante) : `0 (excedente ${Math.abs(restante)})`;
     restEl.textContent = restText;
 
-    // Imagen
     const raw = base.IMAGEN_URL || it.IMAGEN_URL;
     if (raw) {
       const u = normalizeSharePointImageUrl(raw);
-      imgWrap.innerHTML = `<img src="${u}" class="hero-img" loading="lazy" alt="Etiqueta">
-        <div style="margin-top:6px"><a href="${u}" target="_blank" rel="noreferrer">Abrir imagen</a></div>`;
+      imgWrap.innerHTML = `<img src="${u}" class="hero-img" alt="Etiqueta" loading="lazy" referrerpolicy="no-referrer">`+
+                          `<div style="margin-top:6px"><a href="${u}" target="_blank" rel="noreferrer">Abrir imagen</a></div>`;
     } else {
       imgWrap.innerHTML = '<span class="muted">Sin imagen</span>';
     }
@@ -324,33 +302,31 @@ function extractIdFromText(raw) {
     renderProgress();
   }
 
-  // === Carga del picking ===
-  async function loadPicking({ fecha, wo, linea }) {
+  async function loadPickingByLinea(linea) { // NUEVO: solo línea
     selStatus.textContent = 'Cargando…';
-    const qs = new URLSearchParams();
-    if (fecha) qs.set('fecha', fecha);
-    if (wo) qs.set('wo', wo);
-    if (linea) qs.set('linea', linea);
-    qs.set('v', Date.now());
+    const qs = new URLSearchParams(); if (linea) qs.set('linea', linea); qs.set('v', Date.now());
     const r = await fetch(`/api/picking/list?${qs}`, { cache:'no-store' });
     const arr = await r.json();
     if (!Array.isArray(arr) || !arr.length) { selStatus.textContent = 'Sin resultados'; return false; }
 
-    LIST = arr.map(x => ({
-      ORDEN: Number(x.ORDEN ?? 0),
-      WO: String(x.WO ?? ''),
-      LINEA: String(x.LINEA ?? ''),
-      CODIGO: String(x.CODIGO ?? x['CÓDIGO'] ?? ''),
-      DESCRIPCION: x.DESCRIPCION ?? x['DESCRIPCIÓN'] ?? '',
-      CANTIDAD: Number(x.CANTIDAD ?? 0),
-      UBICACION_ALMACEN: x.UBICACION_ALMACEN ?? x['UBICACION ALMACEN'] ?? x['UBICACIÓN'] ?? '',
-      IMAGEN_URL: x.IMAGEN_URL ?? ''
-    })).filter(x => x.CODIGO && x.CANTIDAD > 0);
+    LIST = arr
+      .filter(x => (x.LINEA || '') === linea) // por si el Flow devolviera más
+      .map(x => ({
+        ORDEN: Number(x.ORDEN ?? 0),
+        WO: String(x.WO ?? ''),
+        LINEA: String(x.LINEA ?? ''),
+        CODIGO: String(x.CODIGO ?? x['CÓDIGO'] ?? ''),
+        DESCRIPCION: x.DESCRIPCION ?? x['DESCRIPCIÓN'] ?? '',
+        CANTIDAD: Number(x.CANTIDAD ?? 0),
+        UBICACION_ALMACEN: x.UBICACION_ALMACEN ?? x['UBICACION ALMACEN'] ?? x['UBICACIÓN'] ?? '',
+        IMAGEN_URL: x.IMAGEN_URL ?? ''
+      }))
+      .filter(x => x.CODIGO && x.CANTIDAD > 0);
 
     LIST.sort((a,b) => (a.ORDEN - b.ORDEN) || (a.WO > b.WO ? 1 : -1));
 
-    restos = {};
-    LIST.forEach(it => restos[keyOf(it)] = it.CANTIDAD);
+    restos = {}; LIST.forEach(it => restos[keyOf(it)] = it.CANTIDAD);
+    LOG = []; // reset de registros
 
     idx = 0;
     selStatus.textContent = '';
@@ -361,54 +337,38 @@ function extractIdFromText(raw) {
   }
 
   // === Eventos UI ===
-  document.querySelectorAll('input[name="modo"]').forEach(r => {
-    r.addEventListener('change', () => {
-      if (r.checked && r.value === 'wo') { woInp.disabled = false; fechaInp.disabled = true; }
-      if (r.checked && r.value === 'fecha') { woInp.disabled = true; fechaInp.disabled = false; }
-    });
-  });
-
   document.getElementById('cargar').addEventListener('click', async () => {
     const linea = lineaSel.value || '';
-    const modo = document.querySelector('input[name="modo"]:checked').value;
-    const fecha = (modo === 'fecha') ? fechaInp.value : null;
-    const wo = (modo === 'wo') ? (woInp.value || '').trim() : null;
-    if (modo === 'fecha' && !fecha) { selStatus.textContent = 'Elegí una fecha'; return; }
-    if (modo === 'wo' && !wo) { selStatus.textContent = 'Ingresá una WO'; return; }
+    if (!linea) { selStatus.textContent = 'Elegí una línea'; return; }
     await loadBase();
-    await loadPicking({ fecha, wo, linea });
+    await loadPickingByLinea(linea); // NUEVO
   });
 
-  // Enter en input de escaneo = Validar
-  scanInp.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); validarBtn.click(); }
-  });
+  // Enter = Validar
+  scanInp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); validarBtn.click(); } });
 
-  // Validar bobina (con loading)
+  // Validar bobina (con loading) — propone por defecto la CANTIDAD TOTAL DE LA BOBINA (NUEVO)
   validarBtn.addEventListener('click', async () => {
     const it = LIST[idx]; if (!it) return;
     const key = keyOf(it);
     const restante = restos[key];
-    const id = extractIdFromText(scanInp.value); // Normalizamos lo que venga del input (puede ser URL completa)
-    scanInp.value = id; // reflejamos el ID limpio en el campo
-    
-    scanStatus.textContent = '';
-    takeWrap.style.display = 'none';
-    takeStatus.textContent = '';
 
+    const id = extractIdFromText(scanInp.value);
+    scanInp.value = id;
+    scanStatus.textContent = ''; takeWrap.style.display = 'none'; takeStatus.textContent = '';
     if (!id) { scanStatus.textContent = 'Ingresá/escaneá un ID_FILA'; return; }
 
-    validarBtn.disabled = true;
-    validarBtn.dataset.label = validarBtn.textContent;
-    validarBtn.textContent = 'Validando…';
+    validarBtn.disabled = true; validarBtn.dataset.label = validarBtn.textContent; validarBtn.textContent = 'Validando…';
     scanStatus.textContent = 'Validando…';
 
     try {
       const r = await fetch(`/api/bobina/${encodeURIComponent(id)}?v=${Date.now()}`, { cache:'no-store' });
-      const d = await r.json();
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch { d = {}; }
+      if (Array.isArray(d)) d = d[0] || {};
+
       const cod = d?.CODIGO ?? d?.['CÓDIGO'];
-      // guardo disponible bobina en un atributo del botón para usar luego
-      validarBtn.dataset.cantBobina = String(Number(d?.CANTIDAD ?? 0));
+      const cantBobina = Number(d?.CANTIDAD ?? 0);
 
       if (!cod) { scanStatus.innerHTML = '<span class="err">No se pudo leer el código de la bobina.</span>'; return; }
       if (String(cod) !== String(it.CODIGO)) {
@@ -416,21 +376,22 @@ function extractIdFromText(raw) {
         return;
       }
 
-      const cantBobina = Number(validarBtn.dataset.cantBobina || 0);
-      const propuesta = Math.max(0, Math.min(cantBobina, Math.max(0, restante)));
-      takeQty.value = propuesta;
+      // NUEVO: por defecto propone la cantidad total de la bobina (no el restante)
+      takeQty.value = Math.max(0, cantBobina);
       takeWrap.style.display = 'block';
       takeStatus.textContent = `Bobina OK. Disponible: ${cantBobina}. Restante del SKU: ${restante}.`;
       takeQty.focus(); takeQty.select();
+
+      validarBtn.dataset.cantBobina = String(cantBobina);
+      validarBtn.dataset.lastId = id; // guardo ID para el log
     } catch (e) {
       scanStatus.innerHTML = `<span class="err">${e?.message || 'Error al consultar bobina'}</span>`;
     } finally {
-      validarBtn.disabled = false;
-      validarBtn.textContent = validarBtn.dataset.label || 'Validar';
+      validarBtn.disabled = false; validarBtn.textContent = validarBtn.dataset.label || 'Validar';
     }
   });
 
-  // Confirmar toma (permite excedente) + loading
+  // Confirmar (permite excedente) y registra en LOG (NUEVO)
   confirmarBtn.onclick = () => {
     const it = LIST[idx]; if (!it) return;
     const key = keyOf(it);
@@ -441,12 +402,19 @@ function extractIdFromText(raw) {
     if (isNaN(q) || q < 0) { takeStatus.innerHTML = '<span class="err">Cantidad inválida.</span>'; return; }
     if (q > cantBobina) { takeStatus.innerHTML = '<span class="err">No podés tomar más de lo que tiene la bobina.</span>'; return; }
 
-    confirmarBtn.disabled = true;
-    confirmarBtn.dataset.label = confirmarBtn.textContent;
-    confirmarBtn.textContent = 'Registrando…';
+    confirmarBtn.disabled = true; confirmarBtn.dataset.label = confirmarBtn.textContent; confirmarBtn.textContent = 'Registrando…';
 
-    // Permitir excedente (restante puede ir negativo)
     restos[key] = (restanteAntes - q);
+
+    // Guardar en LOG
+    LOG.push({
+      timestamp: new Date().toISOString(),
+      linea: it.LINEA,
+      wo: it.WO,
+      codigo: it.CODIGO,
+      id_fila: validarBtn.dataset.lastId || '',
+      cantidad_tomada: q
+    });
 
     const ahora = restos[key];
     if (ahora > 0)      takeStatus.innerHTML = `<span class="ok">Registrado. Restante del SKU: ${ahora}.</span>`;
@@ -455,8 +423,7 @@ function extractIdFromText(raw) {
 
     renderItem();
 
-    confirmarBtn.disabled = false;
-    confirmarBtn.textContent = confirmarBtn.dataset.label || 'Confirmar';
+    confirmarBtn.disabled = false; confirmarBtn.textContent = confirmarBtn.dataset.label || 'Confirmar';
   };
 
   cancelBtn.onclick = () => { takeWrap.style.display = 'none'; takeStatus.textContent = ''; };
@@ -469,8 +436,8 @@ function extractIdFromText(raw) {
   skipBtn.addEventListener('click', () => {
     if (!LIST.length) return;
     const it = LIST[idx];
-    const key = keyOf(it);
-    if (restos[key] > 0) {
+    const k = keyOf(it);
+    if (restos[k] > 0) {
       LIST.push(it);
       LIST.splice(idx, 1);
       if (idx >= LIST.length) idx = LIST.length - 1;
@@ -480,33 +447,23 @@ function extractIdFromText(raw) {
     renderItem();
   });
 
-  // Cámara (toggle) usando html5-qrcode
+  // Cámara
   let qrScanner = null;
   camBtn.addEventListener('click', () => {
-    if (cameraWrap.style.display === 'none') {
-      cameraWrap.style.display = 'block';
-      startQr();
-    } else {
-      stopQr();
-      cameraWrap.style.display = 'none';
-    }
+    if (cameraWrap.style.display === 'none') { cameraWrap.style.display = 'block'; startQr(); }
+    else { stopQr(); cameraWrap.style.display = 'none'; }
   });
-
   function startQr() {
     try {
       if (qrScanner) return;
       const config = { fps: 10, qrbox: 240, aspectRatio: 1.777 };
       qrScanner = new Html5QrcodeScanner('qr-reader', config, false);
       const onScanSuccess = (decodedText) => {
-       const id = extractIdFromText(decodedText);
-       scanInp.value = id || decodedText; // si no pudo extraer, deja lo leído
-       stopQr();
-       cameraWrap.style.display = 'none';
-       validarBtn.click();
-       };
-
-      const onScanError = (_msg) => {};
-      qrScanner.render(onScanSuccess, onScanError);
+        const id = extractIdFromText(decodedText);
+        scanInp.value = id || decodedText;
+        stopQr(); cameraWrap.style.display = 'none'; validarBtn.click();
+      };
+      qrScanner.render(onScanSuccess, () => {});
       camBtn.textContent = 'Cerrar cámara';
     } catch (e) {
       scanStatus.innerHTML = `<span class="err">No se pudo iniciar la cámara: ${e?.message || ''}</span>`;
@@ -514,17 +471,47 @@ function extractIdFromText(raw) {
   }
   function stopQr() {
     if (qrScanner) { try { qrScanner.clear(); } catch {} qrScanner = null; }
-    const qrDiv = document.getElementById('qr-reader');
-    if (qrDiv) qrDiv.innerHTML = '';
-    camBtn.textContent = 'Usar cámara';
+    const qrDiv = document.getElementById('qr-reader'); if (qrDiv) qrDiv.innerHTML = '';
+    camBtn.textContent = 'Cámara';
   }
+
+  // Guardar LOG (cuando todo completo)
+  guardarLogBtn.addEventListener('click', async () => {
+    const total = LIST.length;
+    const completos = LIST.filter(it => restos[keyOf(it)] <= 0).length;
+    if (completos < total) { logStatus.textContent = 'Aún hay ítems pendientes.'; return; }
+    if (!LOG.length) { logStatus.textContent = 'No hay registros para guardar.'; return; }
+
+    guardarLogBtn.disabled = true;
+    const label = guardarLogBtn.textContent;
+    guardarLogBtn.textContent = 'Guardando…';
+    logStatus.textContent = 'Enviando registro…';
+
+    try {
+      // Endpoint proxy en Vercel (ver sección 2), espera body JSON: { items:[...] }
+      const r = await fetch('/api/picking/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: LOG })
+      });
+      if (!r.ok) throw new Error('Error de servidor');
+      logStatus.innerHTML = '<span class="ok">Registro guardado correctamente.</span>';
+      // Si querés, podés limpiar LOG aquí: LOG = [];
+    } catch (e) {
+      logStatus.innerHTML = `<span class="err">No se pudo guardar el registro: ${e?.message || ''}</span>`;
+    } finally {
+      guardarLogBtn.disabled = false;
+      guardarLogBtn.textContent = label;
+    }
+  });
 
   // Init
   (async function init(){
-    statusEl.textContent = 'Listo para cargar.';
+    statusEl.textContent = 'Elegí una línea y presioná Cargar.';
     await loadLines();
   })();
 </script>
 </body>
 </html>
+
 
