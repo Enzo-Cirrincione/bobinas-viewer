@@ -70,7 +70,13 @@
         <b style="min-width:160px;color:var(--muted)">Escanear bobina</b>
         <input id="scan" class="input" type="text" placeholder="ID_FILA (QR)" />
         <button id="validar" class="btn">Validar</button>
+        <button id="cam" class="btn btn-ghost">Usar cámara</button>
         <span id="scanStatus" class="muted"></span>
+      </div>
+
+      <div id="cameraWrap" class="card" style="display:none; padding:12px; margin-top:8px">
+        <div id="qr-reader" style="width:100%"></div>
+        <div class="muted" style="margin-top:6px">Apuntá el QR. Al leerlo, se completará el campo y se validará automáticamente.</div>
       </div>
 
       <div id="takeWrap" style="display:none; margin-top:10px">
@@ -102,11 +108,13 @@
   <div id="status" class="muted">Listo para cargar.</div>
 </div>
 
+<!-- Scanner de QR por cámara -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
 <script>
   // === Helpers y estado ===
   const DEFAULT_LINES = ['L0','L1','L2','TM'];
 
-  // Normaliza URLs de SharePoint para mostrar imagen
   function normalizeSharePointImageUrl(u) {
     if (!u) return u;
     u = u.replace(/%2520/g, '%20');
@@ -128,8 +136,8 @@
     } catch { return u; }
   }
 
-  let LIST = [];   // Ítems de picking (de GET_PICKING)
-  let BASE = {};   // Maestro por código (de GET_BASE_ETIQUETAS)
+  let LIST = [];   // Ítems de picking (GET_PICKING)
+  let BASE = {};   // Maestro por código (GET_BASE_ETIQUETAS)
   let idx = 0;     // Índice del ítem actual
   let restos = {}; // Mapa CODIGO@WO -> restante
 
@@ -152,6 +160,8 @@
   const scanInp  = document.getElementById('scan');
   const validarBtn = document.getElementById('validar');
   const scanStatus = document.getElementById('scanStatus');
+  const camBtn = document.getElementById('cam');
+  const cameraWrap = document.getElementById('cameraWrap');
 
   const takeWrap = document.getElementById('takeWrap');
   const takeQty  = document.getElementById('takeQty');
@@ -177,15 +187,13 @@
   // Fecha default hoy
   fechaInp.value = new Date().toISOString().slice(0,10);
 
-  // === Poblar líneas (dinámico si tenés /api/picking/lines, fallback a defaults) ===
+  // === Poblar líneas con fallback ===
   async function loadLines() {
     try {
       const r = await fetch('/api/picking/lines?_ts='+Date.now(), { cache:'no-store' });
       const arr = await r.json();
       renderLines(Array.isArray(arr) && arr.length ? arr : DEFAULT_LINES);
-    } catch {
-      renderLines(DEFAULT_LINES);
-    }
+    } catch { renderLines(DEFAULT_LINES); }
   }
   function renderLines(arr) {
     lineaSel.innerHTML = '';
@@ -195,7 +203,7 @@
     });
   }
 
-  // === Cargar BASE_ETIQUETAS una sola vez por sesión ===
+  // === Base etiquetas (una vez por sesión) ===
   async function loadBase() {
     const r = await fetch('/api/base/etiquetas?_ts='+Date.now(), { cache:'no-store' });
     const data = await r.json();
@@ -242,11 +250,27 @@
 
     skuTitle.textContent = it.CODIGO;
     woBadge.textContent = `WO: ${it.WO}`;
+    // Aviso visual si cambió la WO respecto al ítem anterior
+    if (idx > 0) {
+      const prevWO = LIST[idx-1]?.WO;
+      if (prevWO && prevWO !== it.WO) {
+        woBadge.style.border = '1px solid var(--accent)';
+        woBadge.style.boxShadow = '0 0 0 3px rgba(79,70,229,.25)';
+        setTimeout(() => { woBadge.style.border='1px solid var(--border)'; woBadge.style.boxShadow='none'; }, 900);
+      }
+    }
+
     descEl.textContent = base.DESCRIPCION || it.DESCRIPCION || '—';
     ubicEl.textContent = base.UBICACION_ALMACEN || it.UBICACION_ALMACEN || '—';
     reqEl.textContent = String(it.CANTIDAD);
-    restEl.textContent = String(restante);
 
+    // Mostrar restante con excedente
+    let restText = '';
+    if (restante >= 0) restText = String(restante);
+    else restText = `0 (excedente ${Math.abs(restante)})`;
+    restEl.textContent = restText;
+
+    // Imagen
     const raw = base.IMAGEN_URL || it.IMAGEN_URL;
     if (raw) {
       const u = normalizeSharePointImageUrl(raw);
@@ -265,7 +289,7 @@
     renderProgress();
   }
 
-  // === Cargar Picking desde el proxy /api/picking/list ===
+  // === Carga del picking ===
   async function loadPicking({ fecha, wo, linea }) {
     selStatus.textContent = 'Cargando…';
     const qs = new URLSearchParams();
@@ -277,7 +301,6 @@
     const arr = await r.json();
     if (!Array.isArray(arr) || !arr.length) { selStatus.textContent = 'Sin resultados'; return false; }
 
-    // Normalizar campos mínimos que usamos en UI
     LIST = arr.map(x => ({
       ORDEN: Number(x.ORDEN ?? 0),
       WO: String(x.WO ?? ''),
@@ -289,10 +312,8 @@
       IMAGEN_URL: x.IMAGEN_URL ?? ''
     })).filter(x => x.CODIGO && x.CANTIDAD > 0);
 
-    // Orden de seguridad por ORDEN (el Flow ya debería devolverlo ordenado)
     LIST.sort((a,b) => (a.ORDEN - b.ORDEN) || (a.WO > b.WO ? 1 : -1));
 
-    // Inicializamos "restos" por SKU@WO
     restos = {};
     LIST.forEach(it => restos[keyOf(it)] = it.CANTIDAD);
 
@@ -319,24 +340,39 @@
     const wo = (modo === 'wo') ? (woInp.value || '').trim() : null;
     if (modo === 'fecha' && !fecha) { selStatus.textContent = 'Elegí una fecha'; return; }
     if (modo === 'wo' && !wo) { selStatus.textContent = 'Ingresá una WO'; return; }
-    await loadBase(); // Traemos el maestro de etiquetas una vez por sesión
+    await loadBase();
     await loadPicking({ fecha, wo, linea });
   });
 
-  // Validar escaneo de bobina: compara CÓDIGO y propone cantidad a tomar
-  document.getElementById('validar').addEventListener('click', async () => {
+  // Enter en input de escaneo = Validar
+  scanInp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); validarBtn.click(); }
+  });
+
+  // Validar bobina (con loading)
+  validarBtn.addEventListener('click', async () => {
     const it = LIST[idx]; if (!it) return;
     const key = keyOf(it);
     const restante = restos[key];
     const id = scanInp.value.trim();
+
     scanStatus.textContent = '';
+    takeWrap.style.display = 'none';
+    takeStatus.textContent = '';
+
     if (!id) { scanStatus.textContent = 'Ingresá/escaneá un ID_FILA'; return; }
+
+    validarBtn.disabled = true;
+    validarBtn.dataset.label = validarBtn.textContent;
+    validarBtn.textContent = 'Validando…';
+    scanStatus.textContent = 'Validando…';
 
     try {
       const r = await fetch(`/api/bobina/${encodeURIComponent(id)}?v=${Date.now()}`, { cache:'no-store' });
       const d = await r.json();
       const cod = d?.CODIGO ?? d?.['CÓDIGO'];
-      const cantBobina = Number(d?.CANTIDAD ?? 0);
+      // guardo disponible bobina en un atributo del botón para usar luego
+      validarBtn.dataset.cantBobina = String(Number(d?.CANTIDAD ?? 0));
 
       if (!cod) { scanStatus.innerHTML = '<span class="err">No se pudo leer el código de la bobina.</span>'; return; }
       if (String(cod) !== String(it.CODIGO)) {
@@ -344,37 +380,57 @@
         return;
       }
 
-      // OK → proponer cantidad para tomar
-      const propuesta = Math.max(0, Math.min(cantBobina, restante));
+      const cantBobina = Number(validarBtn.dataset.cantBobina || 0);
+      const propuesta = Math.max(0, Math.min(cantBobina, Math.max(0, restante)));
       takeQty.value = propuesta;
       takeWrap.style.display = 'block';
       takeStatus.textContent = `Bobina OK. Disponible: ${cantBobina}. Restante del SKU: ${restante}.`;
       takeQty.focus(); takeQty.select();
-
-      // Confirmar toma ↓ (MVP: sólo resta en memoria; luego podemos loguear/consumir)
-      confirmarBtn.onclick = () => {
-        const q = Number(takeQty.value);
-        if (isNaN(q) || q < 0) { takeStatus.innerHTML = '<span class="err">Cantidad inválida.</span>'; return; }
-        if (q > cantBobina) { takeStatus.innerHTML = '<span class="err">No podés tomar más de lo que tiene la bobina.</span>'; return; }
-        if (q > restos[key]) { takeStatus.innerHTML = '<span class="err">No podés exceder el restante del SKU.</span>'; return; }
-
-        restos[key] = Math.max(0, restos[key] - q);
-        takeStatus.innerHTML = '<span class="ok">Cantidad registrada.</span>';
-        renderItem(); // refresca restante y progreso
-      };
-
-      cancelBtn.onclick = () => { takeWrap.style.display = 'none'; takeStatus.textContent = ''; };
-
     } catch (e) {
       scanStatus.innerHTML = `<span class="err">${e?.message || 'Error al consultar bobina'}</span>`;
+    } finally {
+      validarBtn.disabled = false;
+      validarBtn.textContent = validarBtn.dataset.label || 'Validar';
     }
   });
 
+  // Confirmar toma (permite excedente) + loading
+  confirmarBtn.onclick = () => {
+    const it = LIST[idx]; if (!it) return;
+    const key = keyOf(it);
+    const restanteAntes = restos[key];
+
+    const cantBobina = Number(validarBtn.dataset.cantBobina || 0);
+    const q = Number(takeQty.value);
+    if (isNaN(q) || q < 0) { takeStatus.innerHTML = '<span class="err">Cantidad inválida.</span>'; return; }
+    if (q > cantBobina) { takeStatus.innerHTML = '<span class="err">No podés tomar más de lo que tiene la bobina.</span>'; return; }
+
+    confirmarBtn.disabled = true;
+    confirmarBtn.dataset.label = confirmarBtn.textContent;
+    confirmarBtn.textContent = 'Registrando…';
+
+    // Permitir excedente (restante puede ir negativo)
+    restos[key] = (restanteAntes - q);
+
+    const ahora = restos[key];
+    if (ahora > 0)      takeStatus.innerHTML = `<span class="ok">Registrado. Restante del SKU: ${ahora}.</span>`;
+    else if (ahora === 0) takeStatus.innerHTML = `<span class="ok">Registrado. SKU completo.</span>`;
+    else                takeStatus.innerHTML = `<span class="ok">Registrado. Excedente entregado: ${Math.abs(ahora)}.</span>`;
+
+    renderItem();
+
+    confirmarBtn.disabled = false;
+    confirmarBtn.textContent = confirmarBtn.dataset.label || 'Confirmar';
+  };
+
+  cancelBtn.onclick = () => { takeWrap.style.display = 'none'; takeStatus.textContent = ''; };
+
+  // Navegación
   nextBtn.addEventListener('click', () => { if (idx < LIST.length - 1) { idx++; renderItem(); } });
   prevBtn.addEventListener('click', () => { if (idx > 0) { idx--; renderItem(); } });
 
-  // "Saltar": manda el ítem pendiente al final
-  document.getElementById('skip').addEventListener('click', () => {
+  // Saltar: manda el pendiente al final
+  skipBtn.addEventListener('click', () => {
     if (!LIST.length) return;
     const it = LIST[idx];
     const key = keyOf(it);
@@ -388,7 +444,44 @@
     renderItem();
   });
 
-  // Init: set línea y fecha por defecto
+  // Cámara (toggle) usando html5-qrcode
+  let qrScanner = null;
+  camBtn.addEventListener('click', () => {
+    if (cameraWrap.style.display === 'none') {
+      cameraWrap.style.display = 'block';
+      startQr();
+    } else {
+      stopQr();
+      cameraWrap.style.display = 'none';
+    }
+  });
+
+  function startQr() {
+    try {
+      if (qrScanner) return;
+      const config = { fps: 10, qrbox: 240, aspectRatio: 1.777 };
+      qrScanner = new Html5QrcodeScanner('qr-reader', config, false);
+      const onScanSuccess = (decodedText) => {
+        scanInp.value = decodedText;
+        stopQr();
+        cameraWrap.style.display = 'none';
+        validarBtn.click();
+      };
+      const onScanError = (_msg) => {};
+      qrScanner.render(onScanSuccess, onScanError);
+      camBtn.textContent = 'Cerrar cámara';
+    } catch (e) {
+      scanStatus.innerHTML = `<span class="err">No se pudo iniciar la cámara: ${e?.message || ''}</span>`;
+    }
+  }
+  function stopQr() {
+    if (qrScanner) { try { qrScanner.clear(); } catch {} qrScanner = null; }
+    const qrDiv = document.getElementById('qr-reader');
+    if (qrDiv) qrDiv.innerHTML = '';
+    camBtn.textContent = 'Usar cámara';
+  }
+
+  // Init
   (async function init(){
     statusEl.textContent = 'Listo para cargar.';
     await loadLines();
@@ -396,3 +489,4 @@
 </script>
 </body>
 </html>
+
