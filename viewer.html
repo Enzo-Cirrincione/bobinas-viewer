@@ -71,6 +71,7 @@
       background: var(--card);
       padding:18px;
       box-shadow: var(--shadow);
+      transition: box-shadow .15s ease, outline-color .15s ease;
     }
     .title{
       margin:0 0 10px; font-size:22px; font-weight:800; letter-spacing:.2px;
@@ -112,6 +113,12 @@
     .spacer{ height:4px }
     .skeleton{ height:14px; background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.02), rgba(255,255,255,.08)); border-radius:8px; animation: pulse 1.2s infinite }
     @keyframes pulse{ 0%{ background-position:-200px 0 } 100%{ background-position:200px 0 } }
+
+    /* 🚨 Contorno de alerta (>=2 años o BLOQUEADA) */
+    .alerta-roja{
+      outline: 3px solid var(--danger);
+      box-shadow: 0 0 0 8px color-mix(in oklab, var(--danger) 24%, transparent);
+    }
   </style>
 </head>
 <body>
@@ -180,7 +187,7 @@
       const q = params.get('id');
       if (q) return q;
       const parts = window.location.pathname.split('/').filter(Boolean);
-      return parts[parts.length - 1] || null; // soporte /viewer.html?id=... y /bobina/:id (si en el futuro lo usás)
+      return parts[parts.length - 1] || null;
     }
 
     function normalizeSharePointImageUrl(u) {
@@ -209,77 +216,106 @@
     function fieldRow(label, value) {
       return `<div class="row"><b>${label}:</b> ${value ?? ''}</div>`;
     }
-    //Aquí arranca la mejora para poder editar campos desde el viewer
-    function editableRow({ label, value, field, type = 'text', options = [], onSave }) {
-  const row = document.createElement('div');
-  row.className = 'row';
 
-  const bold = document.createElement('b'); bold.textContent = label + ':';
-  const span = document.createElement('span'); span.id = `val-${field}`; span.textContent = value ?? '';
+    // Normalizadores y fechas
+    const stripDiacritics = (s)=> (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const normText = (s)=> stripDiacritics(String(s||'')).replace(/\s+/g,' ').trim().toUpperCase();
 
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = 'Editar';
-
-  const inputWrap = document.createElement('span'); inputWrap.style.display = 'none';
-  let input;
-  if (type === 'select') {
-    input = document.createElement('select'); input.className = 'input';
-    const optEmpty = document.createElement('option'); optEmpty.value = ''; optEmpty.textContent = '(seleccionar)'; input.appendChild(optEmpty);
-    (options || []).forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); });
-    input.value = value || '';
-  } else {
-    input = document.createElement('input'); input.className = 'input'; input.type = (type === 'number') ? 'number' : 'text';
-    if (type === 'number') { input.min = '0'; input.step = '1'; }
-    input.value = value ?? '';
-  }
-
-  const save = document.createElement('button'); save.type = 'button'; save.className = 'btn'; save.textContent = 'Guardar';
-  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-ghost'; cancel.textContent = 'Cancelar';
-  const status = document.createElement('span'); status.className = 'status muted'; status.style.marginLeft = '8px';
-
-  inputWrap.appendChild(input);
-  inputWrap.appendChild(save);
-  inputWrap.appendChild(cancel);
-  inputWrap.appendChild(status);
-
-  row.appendChild(bold);
-  row.appendChild(span);
-  row.appendChild(btn);
-  row.appendChild(inputWrap);
-
-  function enterEdit() {
-    btn.style.display = 'none';
-    span.style.display = 'none';
-    inputWrap.style.display = 'inline-flex';
-    input.focus();
-    if (type !== 'select') input.select();
-  }
-  function exitEdit() {
-    btn.style.display = 'inline-block';
-    span.style.display = 'inline';
-    inputWrap.style.display = 'none';
-    status.textContent = '';
-  }
-
-  btn.addEventListener('click', enterEdit);
-  cancel.addEventListener('click', exitEdit);
-
-  save.addEventListener('click', async () => {
-    const newValRaw = (type === 'number') ? Number(input.value) : input.value.trim();
-    status.textContent = 'Guardando…';
-    try {
-      await onSave(newValRaw, status, (finalVal) => {
-        span.textContent = (finalVal ?? newValRaw) || '';
-        exitEdit();
-      });
-    } catch (e) {
-      status.innerHTML = `<span class="error">${e?.message || 'Error'}</span>`;
+    function parseDateFlexible(v){
+      if (v == null || v === '') return null;
+      const s = String(v).trim();
+      if (/^\d+(\.\d+)?$/.test(s)) {
+        // Excel serial (base 1899-12-30/31)
+        const t = Math.round((Number(s) - 25569) * 86400 * 1000);
+        const d = new Date(t);
+        return isNaN(d) ? null : d;
+      }
+      const d = new Date(s);
+      return isNaN(d) ? null : d;
     }
-  });
+    function yearsDiff(a,b){ return (b - a) / (365.25 * 24 * 3600 * 1000); }
 
-  return row;
-}
+    // ——— Fila editable con SELECT inteligente ———
+    function editableRow({ label, value, field, type = 'text', options = [], onSave }) {
+      const row = document.createElement('div');
+      row.className = 'row';
 
+      const bold = document.createElement('b'); bold.textContent = label + ':';
+      const span = document.createElement('span'); span.id = `val-${field}`; span.textContent = value ?? '';
+
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = 'Editar';
+
+      const inputWrap = document.createElement('span'); inputWrap.style.display = 'none';
+      let input;
+
+      if (type === 'select') {
+        input = document.createElement('select'); input.className = 'input';
+        const optEmpty = document.createElement('option'); optEmpty.value = ''; optEmpty.textContent = '(seleccionar)';
+        input.appendChild(optEmpty);
+        (options || []).forEach(o => {
+          const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt);
+        });
+        // ⚙️ SELECT inteligente: si el valor actual no está en las opciones, lo inyectamos como opción temporal
+        const current = (value ?? '').toString();
+        if (current && !Array.from(input.options).some(o => o.value === current)) {
+          const temp = new Option(current, current);
+          temp.dataset.temp = '1';
+          input.insertBefore(temp, input.firstChild); // queda antes de (seleccionar)
+        }
+        input.value = current || '';
+      } else {
+        input = document.createElement('input'); input.className = 'input'; input.type = (type === 'number') ? 'number' : 'text';
+        if (type === 'number') { input.min = '0'; input.step = '1'; }
+        input.value = value ?? '';
+      }
+
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'btn'; save.textContent = 'Guardar';
+      const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-ghost'; cancel.textContent = 'Cancelar';
+      const status = document.createElement('span'); status.className = 'status muted'; status.style.marginLeft = '8px';
+
+      inputWrap.appendChild(input);
+      inputWrap.appendChild(save);
+      inputWrap.appendChild(cancel);
+      inputWrap.appendChild(status);
+
+      row.appendChild(bold);
+      row.appendChild(span);
+      row.appendChild(btn);
+      row.appendChild(inputWrap);
+
+      function enterEdit() {
+        btn.style.display = 'none';
+        span.style.display = 'none';
+        inputWrap.style.display = 'inline-flex';
+        input.focus();
+        if (type !== 'select') input.select();
+      }
+      function exitEdit() {
+        btn.style.display = 'inline-block';
+        span.style.display = 'inline';
+        inputWrap.style.display = 'none';
+        status.textContent = '';
+      }
+
+      btn.addEventListener('click', enterEdit);
+      cancel.addEventListener('click', exitEdit);
+
+      save.addEventListener('click', async () => {
+        const newValRaw = (type === 'number') ? Number(input.value) : input.value.trim();
+        status.textContent = 'Guardando…';
+        try {
+          await onSave(newValRaw, status, (finalVal) => {
+            span.textContent = (finalVal ?? newValRaw) || '';
+            exitEdit();
+          });
+        } catch (e) {
+          status.innerHTML = `<span class="error">${e?.message || 'Error'}</span>`;
+        }
+      });
+
+      return row;
+    }
 
     // ——— App ———
     async function main() {
@@ -311,118 +347,128 @@
           for (const a of alts) if (data[a] != null && data[a] !== '') return data[a];
           return '';
         };
-       // Nueva ficha con los botones de editar
-       const itemsStatic = [
-  ['ID_FILA', get('ID_FILA') || get('ID')],
-  ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
-  ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
-  ['PROVEEDOR', get('PROVEEDOR')],
-  ['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
-  ['LOTE', get('LOTE')],
-  ['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
-  ['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
-  ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
-];
 
-rowsEl.innerHTML = itemsStatic.map(([k,v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
+        const itemsStatic = [
+          ['ID_FILA', get('ID_FILA') || get('ID')],
+          ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
+          ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
+          ['PROVEEDOR', get('PROVEEDOR')],
+          ['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
+          ['LOTE', get('LOTE')],
+          ['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
+          ['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
+          ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
+        ];
+        rowsEl.innerHTML = itemsStatic.map(([k,v]) => `<div class="row"><b>${k}:</b> ${v || ''}</div>`).join('');
 
-// Ahora añadimos 3 filas editables:
-const guardarCambio = async (payload, status, afterOk) => {
-  const r = await fetch('/api/bobina/update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const txt = await r.text();
-  let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
-  if (!r.ok || out.error) throw new Error(out.message || out.error || r.status);
-  status.textContent = 'OK';
-  // refetch rápido para que se vea actualizado sin reload
-  await refetchAndPatch();
-  afterOk();
-};
+        // Editables
+        const guardarCambio = async (payload, status, afterOk) => {
+          const r = await fetch('/api/bobina/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const txt = await r.text();
+          let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
+          if (!r.ok || out.error) throw new Error(out.message || out.error || r.status);
+          status.textContent = 'OK';
+          await refetchAndPatch();
+          afterOk();
+        };
 
-// helper para refrescar ficha sin recargar la página
-async function refetchAndPatch() {
-  const r2 = await fetch(`/api/bobina/${encodeURIComponent(id)}?v=${Date.now()}`, { cache: 'no-store' });
-  const t2 = await r2.text();
-  let d2; try { d2 = JSON.parse(t2); } catch { d2 = null; }
-  if (r2.ok && d2 && !d2.error) {
-    // parchear valores visibles
-    document.getElementById('val-cantidad') && (document.getElementById('val-cantidad').textContent = d2.CANTIDAD ?? '');
-    document.getElementById('val-ubicacion_almacen') && (document.getElementById('val-ubicacion_almacen').textContent =
-      d2.UBICACION_ALMACEN || d2['UBICACION ALMACEN'] || d2['UBICACIÓN'] || '');
-    document.getElementById('val-estado') && (document.getElementById('val-estado').textContent = d2.ESTADO ?? '');
-  }
-}
+        async function refetchAndPatch() {
+          const r2 = await fetch(`/api/bobina/${encodeURIComponent(id)}?v=${Date.now()}`, { cache: 'no-store' });
+          const t2 = await r2.text();
+          let d2; try { d2 = JSON.parse(t2); } catch { d2 = null; }
+          if (r2.ok && d2 && !d2.error) {
+            document.getElementById('val-cantidad') && (document.getElementById('val-cantidad').textContent = d2.CANTIDAD ?? '');
+            document.getElementById('val-ubicacion_almacen') && (document.getElementById('val-ubicacion_almacen').textContent =
+              d2.UBICACION_ALMACEN || d2['UBICACION ALMACEN'] || d2['UBICACIÓN'] || '');
+            document.getElementById('val-estado') && (document.getElementById('val-estado').textContent = d2.ESTADO ?? '');
+          }
+        }
 
-// CANTIDAD (number)
-rowsEl.appendChild(editableRow({
-  label: 'CANTIDAD',
-  value: get('CANTIDAD'),
-  field: 'cantidad',
-  type: 'number',
-  onSave: async (newVal, status, done) => {
-    if (isNaN(newVal) || newVal < 0) throw new Error('Cantidad inválida');
-    await guardarCambio({ id, cantidad: Number(newVal) }, status, () => done());
-  }
-}));
+        // CANTIDAD (number)
+        rowsEl.appendChild(editableRow({
+          label: 'CANTIDAD',
+          value: get('CANTIDAD'),
+          field: 'cantidad',
+          type: 'number',
+          onSave: async (newVal, status, done) => {
+            if (isNaN(newVal) || newVal < 0) throw new Error('Cantidad inválida');
+            await guardarCambio({ id, cantidad: Number(newVal) }, status, () => done());
+          }
+        }));
 
-// UBICACIÓN (text)
-rowsEl.appendChild(editableRow({
-  label: 'UBICACIÓN',
-  value: get('UBICACION_ALMACEN', ['UBICACIÓN']),
-  field: 'ubicacion_almacen',
-  type: 'text',
-  onSave: async (newVal, status, done) => {
-    if (!newVal) throw new Error('Ubicación vacía');
-    await guardarCambio({ id, ubicacion_almacen: newVal }, status, () => done());
-  }
-}));
+        // UBICACIÓN (text)
+        rowsEl.appendChild(editableRow({
+          label: 'UBICACIÓN',
+          value: get('UBICACION_ALMACEN', ['UBICACIÓN']),
+          field: 'ubicacion_almacen',
+          type: 'text',
+          onSave: async (newVal, status, done) => {
+            if (!newVal) throw new Error('Ubicación vacía');
+            await guardarCambio({ id, ubicacion_almacen: newVal }, status, () => done());
+          }
+        }));
 
-// ESTADO (select)
-rowsEl.appendChild(editableRow({
-  label: 'ESTADO',
-  value: get('ESTADO'),
-  field: 'estado',
-  type: 'select',
-  options: ['ALMACEN', 'LINEA', 'BLOQUEADA'],
-  onSave: async (newVal, status, done) => {
-    if (!newVal) throw new Error('Seleccioná un estado');
-    await guardarCambio({ id, estado: newVal }, status, () => done());
-  }
-}));
+        // ESTADO (select con opción temporal si difiere de las fijas)
+        const estadoActual = get('ESTADO'); // se muestra tal cual en el <span>
+        rowsEl.appendChild(editableRow({
+          label: 'ESTADO',
+          value: estadoActual,
+          field: 'estado',
+          type: 'select',
+          options: ['ALMACEN', 'LINEA', 'BLOQUEADA'],
+          onSave: async (newVal, status, done) => {
+            if (!newVal) throw new Error('Seleccioná un estado');
+            await guardarCambio({ id, estado: newVal }, status, () => done());
+          }
+        }));
 
-// hasta aquí es la mejora para los editables
+        // Links extra
         const url = get('URL');
         if (url) {
           extraLinks.innerHTML = fieldRow('Ficha/Imagen', `<a href="${url}" target="_blank" rel="noreferrer">Abrir</a>`);
         }
 
+        // Mostrar ficha
         cardEl.style.display = 'block';
         statusEl.style.display = 'none';
+
+        // 🚨 Alerta: contorno rojo si >= 2 años o estado BLOQUEADA
+        (function applyAlert(){
+          const fechaIngRaw = get('FECHA_INGRESO', ['FECHA INGRESO']);
+          const estadoRaw = get('ESTADO');
+          const d = parseDateFlexible(fechaIngRaw);
+          let danger = false;
+          if (d) {
+            const diffYears = yearsDiff(d, new Date());
+            if (diffYears >= 2) danger = true;
+          }
+          if (normText(estadoRaw) === 'BLOQUEADA') danger = true;
+          cardEl.classList.toggle('alerta-roja', danger);
+        })();
 
         // Render imagen (método directo como el viewer viejo)
         const raw = get('IMAGEN_URL', ['IMAGEN URL']);
         if (raw) {
-           const imgUrl = normalizeSharePointImageUrl(raw);
-           imgWrap.innerHTML = `
-          <img
-          src="${imgUrl}"
-          alt="Etiqueta"
-          class="hero-img"
-          loading="lazy"
-          referrerpolicy="no-referrer"
-          />
-         <div style="margin-top:6px">
-         <a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir en pestaña nueva</a>
-         </div>
+          const imgUrl = normalizeSharePointImageUrl(raw);
+          imgWrap.innerHTML = `
+            <img
+              src="${imgUrl}"
+              alt="Etiqueta"
+              class="hero-img"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
+            <div style="margin-top:6px">
+              <a href="${imgUrl}" target="_blank" rel="noreferrer">Abrir en pestaña nueva</a>
+            </div>
           `;
-          } else {
-           imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
-           }
-
-
+        } else {
+          imgWrap.innerHTML = '<span class="muted">Sin imagen configurada.</span>';
+        }
 
         // — Devolución —
         const dev = document.getElementById('devolucion');
@@ -462,12 +508,13 @@ rowsEl.appendChild(editableRow({
         });
 
       } catch (e) {
+        const statusEl = document.getElementById('status');
         statusEl.innerHTML = `<span class="error">${e?.message || 'Error inesperado'}</span>`;
       }
-      
     }
     main();
   </script>
 </body>
 </html>
+
 
