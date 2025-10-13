@@ -114,7 +114,7 @@
     .skeleton{ height:14px; background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.02), rgba(255,255,255,.08)); border-radius:8px; animation: pulse 1.2s infinite }
     @keyframes pulse{ 0%{ background-position:-200px 0 } 100%{ background-position:200px 0 } }
 
-    /* 🚨 Contorno de alerta (>=2 años o BLOQUEADA) */
+    /* 🚨 Contorno de alerta (>=2 años o BLOQUEADA/BLOQUEDA/…) */
     .alerta-roja{
       outline: 3px solid var(--danger);
       box-shadow: 0 0 0 8px color-mix(in oklab, var(--danger) 24%, transparent);
@@ -233,10 +233,18 @@
       const d = new Date(s);
       return isNaN(d) ? null : d;
     }
+    function formatDMY(v){
+      const d = parseDateFlexible(v);
+      if (!d) return v || '—';
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yy = d.getFullYear();
+      return `${dd}/${mm}/${yy}`;
+    }
     function yearsDiff(a,b){ return (b - a) / (365.25 * 24 * 3600 * 1000); }
 
-    // ——— Fila editable con SELECT inteligente ———
-    function editableRow({ label, value, field, type = 'text', options = [], onSave }) {
+    // ——— Fila editable (texto o número) ———
+    function editableRow({ label, value, field, type = 'text', onSave }) {
       const row = document.createElement('div');
       row.className = 'row';
 
@@ -247,28 +255,11 @@
       btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = 'Editar';
 
       const inputWrap = document.createElement('span'); inputWrap.style.display = 'none';
-      let input;
-
-      if (type === 'select') {
-        input = document.createElement('select'); input.className = 'input';
-        const optEmpty = document.createElement('option'); optEmpty.value = ''; optEmpty.textContent = '(seleccionar)';
-        input.appendChild(optEmpty);
-        (options || []).forEach(o => {
-          const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt);
-        });
-        // ⚙️ SELECT inteligente: si el valor actual no está en las opciones, lo inyectamos como opción temporal
-        const current = (value ?? '').toString();
-        if (current && !Array.from(input.options).some(o => o.value === current)) {
-          const temp = new Option(current, current);
-          temp.dataset.temp = '1';
-          input.insertBefore(temp, input.firstChild); // queda antes de (seleccionar)
-        }
-        input.value = current || '';
-      } else {
-        input = document.createElement('input'); input.className = 'input'; input.type = (type === 'number') ? 'number' : 'text';
-        if (type === 'number') { input.min = '0'; input.step = '1'; }
-        input.value = value ?? '';
-      }
+      const input = document.createElement('input');
+      input.className = 'input';
+      input.type = (type === 'number') ? 'number' : 'text';
+      if (type === 'number') { input.min = '0'; input.step = '1'; }
+      input.value = value ?? '';
 
       const save = document.createElement('button'); save.type = 'button'; save.className = 'btn'; save.textContent = 'Guardar';
       const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-ghost'; cancel.textContent = 'Cancelar';
@@ -289,7 +280,7 @@
         span.style.display = 'none';
         inputWrap.style.display = 'inline-flex';
         input.focus();
-        if (type !== 'select') input.select();
+        input.select();
       }
       function exitEdit() {
         btn.style.display = 'inline-block';
@@ -341,21 +332,24 @@
           return;
         }
 
-        // Render ficha
+        // Render ficha (aplicando formato dd/mm/yyyy a fechas posibles)
         const get = (k, alts=[]) => {
           if (data[k] != null && data[k] !== '') return data[k];
           for (const a of alts) if (data[a] != null && data[a] !== '') return data[a];
           return '';
         };
 
+        const fechaIngresoRaw = get('FECHA_INGRESO', ['FECHA INGRESO']);
+        const fechaDevolucionRaw = get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']);
+
         const itemsStatic = [
           ['ID_FILA', get('ID_FILA') || get('ID')],
           ['CÓDIGO', get('CODIGO', ['CÓDIGO'])],
           ['DESCRIPCIÓN', get('DESCRIPCION', ['DESCRIPCIÓN'])],
           ['PROVEEDOR', get('PROVEEDOR')],
-          ['FECHA INGRESO', get('FECHA_INGRESO', ['FECHA INGRESO']) || '—'],
+          ['FECHA INGRESO', formatDMY(fechaIngresoRaw) || '—'],
           ['LOTE', get('LOTE')],
-          ['FECHA DEVOLUCIÓN', get('FECHA_DEVOLUCION', ['FECHA DEVOLUCIÓN']) || '—'],
+          ['FECHA DEVOLUCIÓN', formatDMY(fechaDevolucionRaw) || '—'],
           ['LÍNEA', get('ULTIMA_LINEA', ['LINEA'])],
           ['OBSERVACIÓN', get('OBSERVACION', ['OBSERVACIÓN'])]
         ];
@@ -412,17 +406,18 @@
           }
         }));
 
-        // ESTADO (select con opción temporal si difiere de las fijas)
-        const estadoActual = get('ESTADO'); // se muestra tal cual en el <span>
+        // ESTADO (texto libre, sin desplegable; se muestra tal cual viene de Excel)
+        const estadoActual = get('ESTADO'); // visible tal cual
         rowsEl.appendChild(editableRow({
           label: 'ESTADO',
           value: estadoActual,
           field: 'estado',
-          type: 'select',
-          options: ['ALMACEN', 'LINEA', 'BLOQUEADA'],
+          type: 'text',
           onSave: async (newVal, status, done) => {
-            if (!newVal) throw new Error('Seleccioná un estado');
+            // permitir vacío o cualquier texto
             await guardarCambio({ id, estado: newVal }, status, () => done());
+            // tras guardar, re-evaluamos el contorno rojo
+            applyAlert(formatDMY(fechaIngresoRaw), newVal);
           }
         }));
 
@@ -436,21 +431,21 @@
         cardEl.style.display = 'block';
         statusEl.style.display = 'none';
 
-        // 🚨 Alerta: contorno rojo si >= 2 años o estado BLOQUEADA
-        (function applyAlert(){
-          const fechaIngRaw = get('FECHA_INGRESO', ['FECHA INGRESO']);
-          const estadoRaw = get('ESTADO');
-          const d = parseDateFlexible(fechaIngRaw);
+        // 🚨 Alerta: contorno rojo si >= 2 años o estado BLOQUE… (robusto ante typos: “bloqueda”, etc.)
+        function applyAlert(fechaIngDisplay, estadoVal){
+          const d = parseDateFlexible(fechaIngDisplay || fechaIngresoRaw);
           let danger = false;
           if (d) {
             const diffYears = yearsDiff(d, new Date());
             if (diffYears >= 2) danger = true;
           }
-          if (normText(estadoRaw) === 'BLOQUEADA') danger = true;
+          const estN = normText(estadoVal != null ? estadoVal : estadoActual);
+          if (estN.startsWith('BLOQUE')) danger = true; // BLOQUEADA, BLOQUEDA, BLOQUEO, etc.
           cardEl.classList.toggle('alerta-roja', danger);
-        })();
+        }
+        applyAlert(formatDMY(fechaIngresoRaw), estadoActual);
 
-        // Render imagen (método directo como el viewer viejo)
+        // Imagen
         const raw = get('IMAGEN_URL', ['IMAGEN URL']);
         if (raw) {
           const imgUrl = normalizeSharePointImageUrl(raw);
@@ -516,5 +511,6 @@
   </script>
 </body>
 </html>
+
 
 
